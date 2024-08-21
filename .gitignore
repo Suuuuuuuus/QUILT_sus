@@ -5,6 +5,7 @@ test-results/
 samtools
 bgzip
 bcftools
+releases
 *.o
 *.so
 .Rhistory
@@ -23,3 +24,7 @@ gen.txt
 pos.txt
 bamlist.txt
 Rplots.pdf
+*log
+results
+package*
+example*
