@@ -141,6 +141,7 @@ Output reference directory `outputdir` contains:
 * `HLA{gene}fullallelesfilledin.RData`:
 * `hla{gene}exclude.txt`:
 * `hla{gene}full.RData`:
+    - fullalleles: df: 
 * `hla{gene}haptypes.RData`:
 * `hla{gene}newphased.RData`:
 * `hla{gene}snpformatalleles.RData`:

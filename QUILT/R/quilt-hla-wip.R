@@ -44,7 +44,8 @@
 #     summary_best_alleles_threshold = 0.99
 # ) {
 
-homedir <- "well/band/users/rbx225/"
+homedir <- "/well/band/users/rbx225/"
+quilt_sus_dir <- "/well/band/users/rbx225/software/QUILT_sus/QUILT/R/"
 bamlist <- paste0(homedir, "GAMCC/results/hla_test/imputation/bamlists/bamlist_test.txt")
 region <- "A"
 dict_file <- paste0(homedir, "GAMCC/data/references/concatenated/GRCh38_no_alt_Pf3D7_v3_phiX.dict")
@@ -106,13 +107,14 @@ if (!file.exists(bamlist)) {
     stop(paste0("Cannot find file:", bamlist))
 }
 
-
-
 ##
 ## initialization stuff
 ##
+source(paste0(quilt_sus_dir, "/hla_functions.R"))
 check_samtools() ## needs samtools 1.10 or greater in PATH
 startdir <- getwd()
+
+source(paste0(quilt_sus_dir, "/filenames.R"))
 if (is.na(final_output_RData_file)) {
     final_output_RData_file <- file_quilt_final_RData_output_file(outputdir, region)
 }
