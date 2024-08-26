@@ -397,7 +397,6 @@ quilt_hla_one_sample <- function(
 
 
 
-
 check_samtools <- function() {
     ## /data/smew2/myers/1000G/samtools-1.10/
     v <- strsplit(system("samtools --version", intern = TRUE)[1], " ", fixed = TRUE)[[1]][2]
