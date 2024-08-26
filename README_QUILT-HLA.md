@@ -137,11 +137,12 @@ Inputs to `QUILT_HLA_prepare_reference`:
 Output reference directory `outputdir` contains:
 * `hlauntyped.exclude.txt`:
 * `HLAallallelekmers.RData`:
-
+    - `kmers`: # nx3 df that stores all 10-mer information across all genes
+    - `newkmers`: # nx3 df that stores unique 10-mer information across all genes
+    - `hla_gene_information`: # nx5 df that stores chromosomal and strand information for each gene
 * `HLA{gene}fullallelesfilledin.RData`:
 * `hla{gene}exclude.txt`:
 * `hla{gene}full.RData`:
-    - fullalleles: df: 
 * `hla{gene}haptypes.RData`:
 * `hla{gene}newphased.RData`:
 * `hla{gene}snpformatalleles.RData`:
