@@ -141,13 +141,13 @@ get_kmers_from_one_file <- function(
     outputdir
 ) {
 
-    zztop <- i_file ##  dangit Simon
+    zztop <- i_file ##  index of a single bam file
     n <- length(ourfiles)
     ##if (zztop %in% (match(1:10, ceiling(10 * (1:n / n))))) {
     print_message(paste0("Processing file ", zztop, " out of ", length(ourfiles)))
     ##}
     
-    curkmers=matrix(nrow=0,ncol=3)
+    curkmers=matrix(nrow=0,ncol=3) # df with 3 columns
 
     this <- scan(
         file.path(
@@ -157,12 +157,13 @@ get_kmers_from_one_file <- function(
         ),
         what = 'char',
         quiet = TRUE
-    )
-    
-    temp=grep("Please",this)
+    ) # reads the reference sequence file "A_gen.txt" in a long lst of strings
+    ###
+    temp=grep("Please",this) # get the index of occurence "Please"
     this=this[1:(temp-1)]
     
     starts=grep("gDNA",this)
+    ###
     ll=getseqs(starts[1]+2,starts[2]-1,paste(ourfiles[zztop],"[*]",sep=""), this = this)
     starts=c(starts,length(this)+2)
     
@@ -178,10 +179,11 @@ get_kmers_from_one_file <- function(
         ##print(k)
     }
     names(ll)=getnames(starts[1]+2,starts[2]-1,paste(ourfiles[zztop],"[*]",sep=""), this = this)
-    
+    # ll: list of each HLA type sequence with colname being HLA type
+
     ## find a match
     
-    temp=matrix(nrow=length(ll),ncol=nchar(ll[1]))
+    temp=matrix(nrow=length(ll),ncol=nchar(ll[1])) # df with nrow = # HLA type and ncol = length of that gene
     
     for(i in 1:ncol(temp)) temp[,i]=substring(ll,i,i)
     for(i in 1:ncol(temp)) temp[temp[,i]=="-",i]=temp[1,i]
@@ -193,11 +195,11 @@ get_kmers_from_one_file <- function(
     newseqs=vector(length=nrow(temp))
     for(i in 1:length(newseqs)){ newseqs[i]=paste(temp[i,],collapse="")
         newseqs[i]=unlist(gsub("\\.","",newseqs[i]))
-    }
+    } # cleaned version of ll
     
     for(curpos in 1:(max(nchar(newseqs))-9)){
         
-        vv=unique(substring(newseqs,curpos,curpos+9))
+        vv=unique(substring(newseqs,curpos,curpos+9)) # looking for unique 10-mers in 
         qq=grep("\\*",vv)
         if(length(qq) )
             vv=vv[-qq]
@@ -205,7 +207,7 @@ get_kmers_from_one_file <- function(
         if(length(vv))curkmers=rbind(curkmers,cbind(vv,curpos,ourfiles[zztop]))
     }
 
-    curkmers
+    curkmers # each row stores the unique 10-mers at each position in this gene, which position it comes from (one of the HLA allele) and the gene name
 
 }
 
@@ -217,7 +219,7 @@ make_and_save_hla_all_alleles_kmers <- function(
     nCores
 ) {
 
-    ourfiles <- all_hla_regions
+    ourfiles <- all_hla_regions # c("A", "B", ...)
     
     print_message("Begin making HLA all alleles kmers file")
     ## code to make HLAallalleleskmers.out
@@ -234,13 +236,14 @@ make_and_save_hla_all_alleles_kmers <- function(
     kmers <- out[[1]]
     for(i in 2:length(out)) {
         kmers <- rbind(kmers,out[[i]])
-    }
+    } # Now instead of one gene in curkmers, kmers has all 10-mers in all genes
     ## kmers <- get_kmers_for_hla_alleles_all_of_them(ourfiles)
     
     newnames=unique(kmers[,1])
     newkmers=matrix(nrow=length(newnames),ncol=3)
     newkmers[,1]=newnames
     rownames(newkmers)=newnames
+    # newkmers stores instead unique 10-mers at each position for each gene, absolute 10-mers across all HLA genes and types
     
     temps=kmers[order(kmers[,1]),]
     starts=c(1,which(temps[2:nrow(kmers),1]!=temps[1:(nrow(kmers)-1),1])+1)
@@ -255,9 +258,9 @@ make_and_save_hla_all_alleles_kmers <- function(
 
     ## easy enough to save hla_gene_information here
     save(
-        kmers,
-        newkmers,
-        hla_gene_information,
+        kmers, # nx3 df that stores all 10-mer information
+        newkmers, # nx3 df that stores unique 10-mer information
+        hla_gene_information, # nx5 df that stores chromosomal and strand information for each gene
         file = file_quilt_hla_all_alleles_kmers(outputdir)
     )
 
