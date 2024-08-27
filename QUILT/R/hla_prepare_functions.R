@@ -629,9 +629,9 @@ get_and_reformat_gen_alignments_for_hla_region <- function(
     ## not sure what the numbering is then if it is sometimes wrong!
     ## in any case, easy to calculate
     spos1 <- which(temp[1,]=="|")[1]
-    offset <- as.numeric(this[grep("gDNA", this)[1] + 1]) * -1
+    offset <- as.numeric(this[grep("gDNA", this)[1] + 1]) * -1 # Don't know what's this doing
     ## want the offset + 1 base after removing periods
-    spos2 <- which(cumsum(temp[1, ] != ".") == (offset + 1))
+    spos2 <- which(cumsum(temp[1, ] != ".") == (offset + 1)) # After removing .'s, isn't the coordinates gonna be messed up from BAM files?
     
     n <- c(
         spos1 = spos1,
@@ -661,9 +661,9 @@ get_and_reformat_gen_alignments_for_hla_region <- function(
 
     return(
         list(
-            ll = ll,
-            temp = temp,
-            n = n
+            ll = ll,        # matrix for HLA types
+            temp = temp,    # matrix for HLA types, with pre-CDS trimmed and strand flipped
+            n = n           # mysterious list, don't quite understand how this is gonna be used later, especially spos2
         )
     )
 }
@@ -746,7 +746,7 @@ make_single_hla_full <- function(
 
 make_and_save_hla_files_for_imputation <- function(
     outputdir,
-    hla_regions_to_prepare,
+    hla_regions_to_prepare, # c("A", "B", "C", "DQB1", "DRB1")
     hla_gene_information,
     ref_fasta,
     nCores
@@ -775,7 +775,7 @@ make_and_save_hla_files_for_imputation <- function(
             genome_pos <- hla_gene_information[m, "Start"]
         } else {
             genome_pos <- hla_gene_information[m, "End"]
-        }
+        } # Check if that gene is on positive strand, genome_pos is the start of CDS sequence
 
         out <- get_and_reformat_gen_alignments_for_hla_region(
             outputdir = outputdir,
@@ -792,7 +792,7 @@ make_and_save_hla_files_for_imputation <- function(
         } else {
             start <- genome_pos - (aligned - 1)
         }
-        end <- start + aligned - 1
+        end <- start + aligned - 1 # Calculating ending bases after removing .'s
 
         reference_allele <- determine_reference_genome_hla_allele(
             ref_fasta = ref_fasta,
@@ -802,7 +802,7 @@ make_and_save_hla_files_for_imputation <- function(
             ll = ll,
             temp = temp,
             hla_strand = hla_strand
-        )
+        ) # Determines the reference genome contains which allele in the database
 
         print_message(paste0("Determined automatically that the reference genome contains allele:", reference_allele))
 
@@ -830,7 +830,10 @@ make_and_save_hla_files_for_imputation <- function(
                 curpos <- curpos + 1
             }
             ourpos[i] <- curpos
-        }
+        } 
+        # This makes sense because if in the sequence presents a period then we shouldn't +1 to chromosomal coordinates
+        # But what if the allele has an insertion like A*24:473Q between pos56-57? First glimpse: it fails to capture this.
+        
         ## ourpos gives positions relative to the genome reference sequence
 
         ##
@@ -907,7 +910,12 @@ per_entry_in_temp_check_match <- function(temp, refseq) {
         c <- a != b
         c(sum(c, na.rm = TRUE), sum(!is.na(c)))
     }))
-}
+} 
+
+# I don't understand this comparison (probably because I don't really understand what . means in refseq)
+# If filtering out .'s, isn't that we're not comparing each base by chromosomal coordinates?
+# Okay after some searching (e.g.: https://www.ebi.ac.uk/ipd/mhc/alignment/help/) that probably means the presense of an indel. For example see HLA-A most sequences have 6 periods between CDS pos 56-57, but A*24:473Q has GGCCCT in that, probably suggesting an insertion.
+# But what if `refseq` has an indel?
 
 
 determine_reference_genome_hla_allele <- function(
