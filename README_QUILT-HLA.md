@@ -146,6 +146,7 @@ Output reference directory `outputdir` contains:
 * `hla{gene}haptypes.RData`:
 * `hla{gene}newphased.RData`:
 * `hla{gene}snpformatalleles.RData`:
+    - 
 * `quilt.hrc.hla.{gene}.haplotypes.RData`: 
 
 Inputs to `QUILT_HLA`:
