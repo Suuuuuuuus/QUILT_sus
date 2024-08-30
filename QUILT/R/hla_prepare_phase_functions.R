@@ -326,7 +326,7 @@ hla_perform_step_1_phasing <- function(
         ##now SNP info
         startandend=range(locs)
 
-        start32=floor(startandend[1]/32)+1
+        start32=floor(startandend[1]/32)+1 # per-chunk start
         end32=floor(startandend[2]/32)+1
 
         start=(start32-1)*32+1
@@ -335,7 +335,7 @@ hla_perform_step_1_phasing <- function(
         tempIE=distinctHapsIE[,start:end]
         tempB=distinctHapsB[,start32:end32]
 
-        temp=rhb_t[,start32:end32]
+        temp=rhb_t[,start32:end32] # Don't know what's in the rhb_t matrix. Just 1 or -1 so strand information for each individual's haplotype maybe?
         temp2=matrix(nrow=nrow(temp),ncol=ncol(tempIE))
         ##NA case interpretation
         cc=c(rep(0.001,31),0.999)
@@ -367,6 +367,7 @@ hla_perform_step_1_phasing <- function(
         dist12=rowSums(abs((hrcfirstalleles)-predsecondalleles))
         dist21=rowSums(abs((hrcsecondalleles)-predfirstalleles))
         dist22=rowSums(abs((hrcsecondalleles)-predsecondalleles))
+        # Guess the above is doing alignment
         w=1:length(dist11)*0
         w[dist11>dist12]=1
         w[dist11<dist12]= -1
@@ -416,6 +417,7 @@ hla_perform_step_1_phasing <- function(
 
         phased= (!is.na(phase1) & !is.na(phase2) & phase1<4 & phase2>4) |
             (!is.na(phase1) & !is.na(phase2) & phase1>4 & phase2<4) | (!is.na(phase1) & !is.na(phase2) & phase1-phase2>2 ) | (!is.na(phase1) & !is.na(phase2) & phase2-phase1>2) | (!is.na(ourtypes1) & !is.na(ourtypes2) & ourtypes1==ourtypes2) | (is.na(d21) & !is.na(d12) & d22-d12>2) | (is.na(d21) & !is.na(d12) & d12-d22>2) | (is.na(d12) & !is.na(d21) & d11-d21>2) | (is.na(d12) & !is.na(d21) & d21-d11>2)
+        # These are presumably criteria to check if an individual having this gene phased onto haplotypes
 
         ##print("Remaining to be phased")
         ##print(table(phased))

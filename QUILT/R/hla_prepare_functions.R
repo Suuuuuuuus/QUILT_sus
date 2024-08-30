@@ -695,7 +695,7 @@ make_single_hla_full <- function(
         dd=paste(ww,collapse="")
         ee=substring(dd,1:(nchar(dd)-9),10:nchar(dd))
         ##unique only
-        hh=paste(ee,zz)
+        hh=paste(ee,zz) # kmers and their starting positions
         cond=!(hh %in% xx)
         if(sum(cond)){
             ee=ee[cond]

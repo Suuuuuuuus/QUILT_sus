@@ -135,22 +135,34 @@ Inputs to `QUILT_HLA_prepare_reference`:
 * `region_exclude_file`: df with 4 columns: gene, chr, start and end that document the b38 coordinate of each gene. This file might be downloaded from this website (https://www.ebi.ac.uk/ipd/imgt/hla/help/genomics.html), but the coordinates are not exactly the same.
 
 Output reference directory `outputdir` contains:
-* `hlauntyped.exclude.txt`:
+* `hlauntyped.exclude.txt`: Don't seem to need this.
 * `HLAallallelekmers.RData`: n is the number of HLA types in the IPDIMGT database
     - `kmers`: nx3 df that stores all 10-mer information across all genes
     - `newkmers`: nx3 df that stores unique 10-mer information across all genes
     - `hla_gene_information`: nx5 df that stores chromosomal and strand information for each gene
 * `HLA{gene}fullallelesfilledin.RData`:
-* `hla{gene}exclude.txt`:
-* `hla{gene}full.RData`:
     - `ourpos`: list of length l that stores the chromosomal coordinates for each base (accounting for possible indels with respect to b38) of that allele within that specific gene `\pm` 10 bases.
     - `fullalleles`: nxl df that has imputed genotypes.
+* `hla{gene}exclude.txt`:
+    - List of sample IDs to exclude from reference panel after phase1 step in prepare reference panel.
+* `hla{gene}full.RData`:
+    - `kmers`: List of unique 10-mers from all HLA alleles of that gene.
+    - `positions`: List of associating chromosomal positions of the 10-mers.
+    - `lookup`: nxl df of non-zero positions filled in with increasing integers (up to `t1`) per row, with periods in the database represented by 0.
+    - `revlookup`: nxl df with first `t1` per row storing non-period positions and the rest to be 0.
+    - `xx`: 10-mers and accompanying chromosomal position.
+    - `fullalleles`: nxl df that has imputed genotypes.
 * `hla{gene}haptypes.RData`:
+    - `hlahaptypes`: list of individual HLA types (both haplotypes, named A1 and A2 for example).
 * `hla{gene}newphased.RData`:
+    - `ourtypes1`: list of length n (individuals not filtered out) with its HLA type on haplotype 1.
+    - `ourtypes2`: list of length n (individuals not filtered out) with its HLA type on haplotype 2.
+    - `phased1`: list of length n (individuals not filtered out) with whether that HLA type on haplotype 1 passed the criteria.
+    - `phased2`: list of length n (individuals not filtered out) with whether that HLA type on haplotype 2 passed the criteria.
 * `hla{gene}snpformatalleles.RData`: n is the number of HLA types in the IPDIMGT database
     - `resmat`: nxl df where l is the length of that gene. It is the result of alignment for all HLA allelic sequence to the reference allele, where 1 means alternative, 0 means reference, and -1 represents star.
     - `knownvarsfiltered`: mx3 df that resembles an empty vcf format, where the columns are pos, ref and alt, setting the reference allele as reference of course.
-* `quilt.hrc.hla.{gene}.haplotypes.RData`: 
+* `quilt.hrc.hla.{gene}.haplotypes.RData`:Output of the main QUILT prepare reference utility.
 
 Inputs to `QUILT_HLA`:
 * `prepared_hla_reference_dir`: Output of the prepare reference utility that contains a bunch of RData file and txt file.
