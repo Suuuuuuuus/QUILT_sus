@@ -88,7 +88,7 @@ getvars2 <- function(refrow=temp[ourrow,],testrow,ourpos){
     
     return(res)
 }
-
+# Compares the reference allele and another allele to identify differences, returning a matrix of 3 cols: positions that are different and sequences
 
 ## test2=getvars2(temp[1,],temp[616,],ourpos)
 ## now slightly modify
@@ -297,6 +297,7 @@ make_single_snpformatalleles <- function(
         cc=getvars2(temp[ourrow,],temp[i,],ourpos)
         if(length(cc)) varset=rbind(varset,cbind(matrix(cc,ncol=3),i))
     }
+    # Checking variant difference between each row and the reference allele row, producing a varset matrix of 4 columns: pos ref alt and row index of which allele it comes from the temp variable
     ##print("...done: filtering variants")
     
     cccc=paste(varset[,1],rep("W",nrow(varset)),varset[,2],rep("W",nrow(varset)),varset[,3],rep("W",nrow(varset)),sep="")
@@ -306,11 +307,11 @@ make_single_snpformatalleles <- function(
     cccc=strsplit(cccc,"W")
     newset=matrix(nrow=length(cccc),ncol=3)
     for(i in 1:nrow(newset)) newset[i,]=cccc[i][[1]]
-    newset[1:5,]
-    dim(newset)
+    #newset[1:5,]
+    #dim(newset)
     
     ##modify to simpler way of calling mutations
-    varset2=process(newset)
+    varset2=process(newset) # process is (probably) trying to recode indels. e.g.: A>AC --> "">C
     knownvars=varset2
     knownvars=knownvars[order(as.double(knownvars[,1])),]
     ##this has removed identical bases
@@ -375,7 +376,7 @@ make_single_snpformatalleles <- function(
             
         }
         ##print(length(overlaps))
-    }
+    } # Don't fully understand what this bit is doing, but seems to be removing some variants based on 1) sequence length 2) overlaps
     
     knownvarsfiltered=knownvars[rm==0,]
     ##print("....done:Making variant calls, percentage complete:")
@@ -419,7 +420,7 @@ make_single_snpformatalleles <- function(
     }
     ##print("...done")
     ##print("Final clean-up...")
-    ##can be an issue where some variants are never seen, remove these (it is because there is local similarity and more than one correct local aligment so may be inconsisently called)
+    ##can be an issue where some variants are never seen (like they are all stars), remove these (it is because there is local similarity and more than one correct local aligment so may be inconsisently called)
     
     knownvarsfiltered=knownvarsfiltered[colSums(resmat>0)>0,]
     resmat=resmat[,colSums(resmat>0)>0]
@@ -457,8 +458,8 @@ make_single_hla_full_alleles_filled_in <- function(
     
     haps=t(temp2$ourallelemat)
     cond=pos[,3]%in%c("A","C","G","T") & pos[,4]%in%c("A","C","G","T") & rowMeans(haps==-1)<0.1
-    haps=haps[cond ,]
-    pos=pos[cond,]
+    haps=haps[cond,]
+    pos=pos[cond,] # only keeping SNPs and low missingness variants
     
     ##print("...done")
     
@@ -519,6 +520,9 @@ make_single_hla_full_alleles_filled_in <- function(
         newvalue=sum(temp=="*")
         
     }
+    # Basically it is trying to impute missing genotypes from the most matching alleles, and counting which base appears most frequently.
+    # This could be further improved to take into account indels as well as a better method.
+
     ##print("....done")
     
     ##guess missing values
@@ -551,7 +555,7 @@ make_single_hla_full_alleles_filled_in <- function(
                 possalleles=t1[t1!="*"][dd==min(dd)]
                 cc=1:5*0;names(cc)=c("A","C","G","T","-")
                 for(k in 1:5) cc[k]=sum(possalleles==names(cc)[k])
-                temp[i,j]=names(cc)[which(cc==max(cc))[1]]
+                temp[i,j]=names(cc)[which(cc==max(cc))[1]] # This is indeed arbitrary, especially if there is a tie
                 
             }
         }
@@ -570,7 +574,9 @@ make_single_hla_full_alleles_filled_in <- function(
 
 }
 
-
+# For these imputed types I don't know how much difference it would make if we take it seriously, 
+# but we could possibly build a tree out of all HLA alleles in the database and trying to impute missing types from there.
+# Also if they have high missingness (> current threshold 0.1) or are indels, the method is currently omitting them
 
 get_and_reformat_gen_alignments_for_hla_region <- function(
     outputdir,
@@ -845,8 +851,8 @@ make_and_save_hla_files_for_imputation <- function(
             hla_region = hla_region,
             temp = temp,
             ll = ll,
-            ourpos = ourpos,
-            ourrow = ourrow
+            ourpos = ourpos, # chromosomal coordinates after adjusting indels
+            ourrow = ourrow  # name of reference HLA type
         )
         load(file_quilt_hla_snpformatalleles(outputdir, hla_region))
         

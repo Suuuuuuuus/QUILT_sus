@@ -136,17 +136,20 @@ Inputs to `QUILT_HLA_prepare_reference`:
 
 Output reference directory `outputdir` contains:
 * `hlauntyped.exclude.txt`:
-* `HLAallallelekmers.RData`:
-    - `kmers`: # nx3 df that stores all 10-mer information across all genes
-    - `newkmers`: # nx3 df that stores unique 10-mer information across all genes
-    - `hla_gene_information`: # nx5 df that stores chromosomal and strand information for each gene
+* `HLAallallelekmers.RData`: n is the number of HLA types in the IPDIMGT database
+    - `kmers`: nx3 df that stores all 10-mer information across all genes
+    - `newkmers`: nx3 df that stores unique 10-mer information across all genes
+    - `hla_gene_information`: nx5 df that stores chromosomal and strand information for each gene
 * `HLA{gene}fullallelesfilledin.RData`:
 * `hla{gene}exclude.txt`:
 * `hla{gene}full.RData`:
+    - `ourpos`: list of length l that stores the chromosomal coordinates for each base (accounting for possible indels with respect to b38) of that allele within that specific gene `\pm` 10 bases.
+    - `fullalleles`: nxl df that has imputed genotypes.
 * `hla{gene}haptypes.RData`:
 * `hla{gene}newphased.RData`:
-* `hla{gene}snpformatalleles.RData`:
-    - 
+* `hla{gene}snpformatalleles.RData`: n is the number of HLA types in the IPDIMGT database
+    - `resmat`: nxl df where l is the length of that gene. It is the result of alignment for all HLA allelic sequence to the reference allele, where 1 means alternative, 0 means reference, and -1 represents star.
+    - `knownvarsfiltered`: mx3 df that resembles an empty vcf format, where the columns are pos, ref and alt, setting the reference allele as reference of course.
 * `quilt.hrc.hla.{gene}.haplotypes.RData`: 
 
 Inputs to `QUILT_HLA`:

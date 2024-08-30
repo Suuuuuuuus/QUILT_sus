@@ -18,40 +18,6 @@ phase_hla_haplotypes <- function(
     nGen,
     nCores
 ) {
-
-
-    if (1 == 0 )  {
-
-        ## not needed per-se
-        inputs_dir <- "/data/smew1/rdavies/quilt_hla_finalize_with_simon/inputs_2021_03_25/"
-        outputdir <- "/data/smew1/rdavies/quilt_hla_finalize_with_simon/HLA_TEST_2021_03_25"
-        chr <- "chr6"
-        hla_gene_region_file <- "~/proj/QUILT/hla_ancillary_files/hlagenes.txt"
-        full_regionStart <- 25587319
-        full_regionEnd <- 33629686
-        buffer <- 500000
-        regions <- c("A", "B", "C", "DQB1", "DRB1")
-        region_exclude_file <- "~/proj/QUILT/hla_ancillary_files/hlagenes.txt"
-        reference_haplotype_file <- file.path(inputs_dir, "hrc.chr6.hap.clean.small.gz")
-        reference_legend_file <- file.path(inputs_dir, "hrc.chr6.legend.clean.small.gz")
-        reference_sample_file <- file.path(inputs_dir, "hrc.chr6.samples.reheadered2")
-        reference_exclude_samplelist_file <- ""
-        reference_exclude_samples_for_initial_phasing <- FALSE
-        hla_types_panel <- file.path(outputdir, "20181129_HLA_types_full_1000_Genomes_Project_panel.txt")
-        genetic_map_file <- file.path(inputs_dir, "CEU-chr6-final.b38.txt.gz")
-        minRate <- 0.1
-        nGen <- 100
-        nCores <- 6
-        ##reference_exclude_samplelist_file <- file.path(outputdir, "hlauntyped.exclude.txt")
-        ##removeinds_file <- "" ## need to do this!
-        ##cat(c("NA12878", "NA18566"), file = file.path(outputdir, "exclude.test.txt"), sep = "\n")
-        ##removeinds_file <-  file.path(outputdir, "exclude.test.txt")
-        ## new Robbie prepared input file list
-        ##full_reference_hap_file <- "hrc.chr6.25587319.33629686.pretendhlatyped.RData" ## re-name later
-        
-    }
-
-
     ##
     ## determine people we don't want at all to extract
     ##
@@ -186,65 +152,6 @@ phase_hla_haplotypes <- function(
 
     NULL
 }
-
-
-
-
-if (1 == 0) {
-
-    ## rwd: simon previous preamble comments
-    
-    ##
-    ## input file description
-    ##
-
-    ## downloaded file of HLA types from publication on 1000G:
-    ## 20181129_HLA_types_full_1000_Genomes_Project_panel.txt
-    ## From: Immune diversity sheds light on missing variation in worldwide genetic diversity panels.
-    ## Abi-Rached L, Gouret P, Yeh J-H, Di Cristofaro J, Pontarotti P, Picard C, and Paganini J.
-    ## Published: October 26, 2018 DOI: 10.1371/journal.pone.0206512
-    ## https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0206512
-
-    ## reference panel in HLA regions, file hrc.chr6.25587319.33629686.pretendhlatyped.RData
-    ## made with command (old code)
-    ##   cd /data/smew1/rdavies/single_imp/2020_06_25/
-    ##   R -f /datas/muscovy/not-backed-##up/shi/covid/prepare_region_hrc.R --args \
-    ##   ref_panels/hrc.chr6.hap.clean.gz \
-    ##   ref_panels/hrc.chr6.legend.clean.gz \
-    ##   chr6 \
-    ##   25587319 \
-    ##   33629686 \
-    ##   500000 \
-    ##   /datas/muscovy/not-backed-up/shi/covid/hrc.chr6.25587319.33629686.RData \
-    ##   /datas/muscovy/not-backed-up/shi/covid/hrc.chr6.25587319.33629686.sites.vcf.gz \
-    ##   ref_panels/hrc.chr6.samples \
-    ##   /data/smew1/rdavies/external/recomb/CEU/CEU-chr6-final.b38.txt.gz \
-    ##   /datas/muscovy/not-backed-up/shi/covid/hlauntyped.exclude.txt \
-    ##   /datas/muscovy/not-backed-up/shi/covid/hlapretendgenes.txt \
-    ##   /datas/muscovy/not-backed-up/shi/covid/hrc.chr6.25587319.33629686.pretendhlatyped.RData
-
-
-    ## other input files
-    ## hla*snpformatalleles.out
-    ## should already be made
-    ## hla*fullallelesfilledin.out
-    ## should already be made
-
-    ## input file
-    ## hrc.chr6.hla*.hlatyped.RData
-
-    
-    ##
-    ## output file description
-    ##
-
-    ## temporary output file
-    ## hla*newphased.out
-    ## output file 
-    ## hla*haptypes.out
-
-}
-
 
 
 
