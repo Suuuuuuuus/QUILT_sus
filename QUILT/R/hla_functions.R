@@ -33,8 +33,9 @@ quilt_hla_one_sample <- function(
     bamfile <- bamfiles[iSample]
 
     ##
-    ## this appears to get reads that map to the region of interest on chr6
+    ## that: reads that map to the region of interest (gene) on chr6
     ##
+
     that <- get_that(
         bamfile = bamfile,
         chr = chr,
@@ -43,10 +44,10 @@ quilt_hla_one_sample <- function(
     )
     
     ##
-    ## this appears to get reads that map to any of the HLA regions from the ref
+    ## that2: reads that map to the alternative HLA contigs
     ##
     ## refseq.txt contains all the names of alleles that can be mapped to
-    this <- read.delim(refseq_file, header = FALSE)
+    this <- read.delim(refseq_file, header = FALSE) # This is actually the dict file
     
     that2 <- get_that2(
         this = this,
@@ -499,7 +500,7 @@ filter_that <- function(
     if (nrow(that) > 0){
         ## above is all that is used so can filter these initially
         ## This filters out all reads that are not the desired read length, which is assumed to be the mode of all reads
-        rl = get_mode(nchar(that[, 11]))
+        rl = get_mode(nchar(that[, 11])) # Need to get back to this -- it fails to apply to long-read data.
         that <- that[nchar(that[, 11]) == rl, ]
 
         check <- as.vector(that[,7])
@@ -551,7 +552,7 @@ get_that2 <- function(
     ## only for the canonical six regions is below helpful!!
     w <- grep(paste("HLA-", region,sep=""), this[,2])
     ##temp <- as.vector(this[w, 2:3, drop = FALSE])
-    temp <- this[w, 2:3, drop = FALSE]
+    temp <- this[w, 2:3, drop = FALSE] # If there is no alternative HLA contig in the dict file, this function will simply return that.
     that2 <- that
     check <- length(w) > 0
     if (is.logical(check) && length(check) == 1 && !is.na(check) && check) {
@@ -1068,7 +1069,7 @@ filterbyregion=function(seqs,seqnames,newkmers,regname){
     compmat=toupper(compmat)
     compreadmat=compmat
     compseqs=vector(length=nrow(compmat))
-    
+    # readmat and compreadmat are nx151 dfs of sequences
     for( i in 1:length(compseqs)) compseqs[i]=paste(compmat[i,],collapse="")
 
 ######given a read it is now trivial to get info:
@@ -1076,16 +1077,12 @@ filterbyregion=function(seqs,seqnames,newkmers,regname){
     readpos=cbind(newkmers[match(substring(seqs,11,20),newkmers[,1]),2],newkmers[match(substring(seqs,21,30),newkmers[,1]),2],newkmers[match(substring(seqs,rl-29,rl-20),newkmers[,1]),2],newkmers[match(substring(seqs,rl-19,rl-10),newkmers[,1]),2])
     readreg=cbind(newkmers[match(substring(seqs,11,20),newkmers[,1]),3],newkmers[match(substring(seqs,21,30),newkmers[,1]),3],newkmers[match(substring(seqs,rl-29,rl-20),newkmers[,1]),3],newkmers[match(substring(seqs,rl-19,rl-10),newkmers[,1]),3])
 
+    # readpos and readreg are nx4 dfs: each column represents one of the fourth positions checking whether that 10-mer matches newkmers, where the position and gene information are stored in each variables, respectively.
 
     readposc=cbind(newkmers[match(substring(compseqs,11,20),newkmers[,1]),2],newkmers[match(substring(compseqs,21,30),newkmers[,1]),2],newkmers[match(substring(compseqs,rl-29,rl-20),newkmers[,1]),2],newkmers[match(substring(compseqs,rl-19,rl-10),newkmers[,1]),2])
     readregc=cbind(newkmers[match(substring(compseqs,11,20),newkmers[,1]),3],newkmers[match(substring(compseqs,21,30),newkmers[,1]),3],newkmers[match(substring(compseqs,rl-29,rl-20),newkmers[,1]),3],newkmers[match(substring(compseqs,rl-19,rl-10),newkmers[,1]),3])
 
-    ## readpos=cbind(newkmers[match(substring(seqs,11,20),newkmers[,1]),2],newkmers[match(substring(seqs,21,30),newkmers[,1]),2],newkmers[match(substring(seqs,121,130),newkmers[,1]),2],newkmers[match(substring(seqs,131,140),newkmers[,1]),2])
-    ## readreg=cbind(newkmers[match(substring(seqs,11,20),newkmers[,1]),3],newkmers[match(substring(seqs,21,30),newkmers[,1]),3],newkmers[match(substring(seqs,121,130),newkmers[,1]),3],newkmers[match(substring(seqs,131,140),newkmers[,1]),3])
-
-
-    ## readposc=cbind(newkmers[match(substring(compseqs,11,20),newkmers[,1]),2],newkmers[match(substring(compseqs,21,30),newkmers[,1]),2],newkmers[match(substring(compseqs,121,130),newkmers[,1]),2],newkmers[match(substring(compseqs,131,140),newkmers[,1]),2])
-    ## readregc=cbind(newkmers[match(substring(compseqs,11,20),newkmers[,1]),3],newkmers[match(substring(compseqs,21,30),newkmers[,1]),3],newkmers[match(substring(compseqs,121,130),newkmers[,1]),3],newkmers[match(substring(compseqs,131,140),newkmers[,1]),3])
+    # readposc and readregc are trying to match the reverse complement of each read
 
 
 ######turn this into a matrix of which regions and positions we might have
@@ -1127,11 +1124,11 @@ filterbyregion=function(seqs,seqnames,newkmers,regname){
     }
 
 
-    regnames=sort(unique(allreg))
+    regnames=sort(unique(allreg)) # Gene names where there is at least 1 kmer match
 
 
 ########for a given read get pos
-    thresh=2
+    thresh=2 # Don't know what this is checking..
     regions=matrix(0,nrow=nrow(readpos),ncol=length(regnames))
     colnames(regions)=regnames
     for(i in 1:nrow(readpos)){
@@ -1169,88 +1166,100 @@ filterbyregion=function(seqs,seqnames,newkmers,regname){
     correctgaps=regions*0
 ###relative positions
     pos=c(11,21,rl-29,rl-19)
-    # pos=c(11,21,121,131)
-    k=10
+    k=10 # Don't need to initialise this variable I guess
 
     for(i in 1:nrow(regions)){
-	zz=which(regions[i,]>=thresh)
-	## print(i)
-	if(length(zz)){
-
+	    zz=which(regions[i,]>=thresh)
+	    if(length(zz)){
             for(k in zz){
+                nn=unlist(strsplit(readreg[i,1],","))
+                mm=unlist(strsplit(readpos[i,1],","))
+                mm1=mm[nn==colnames(regions)[k]]
+                nn=unlist(strsplit(readreg[i,2],","))
+                mm=unlist(strsplit(readpos[i,2],","))
+                mm2=mm[nn==colnames(regions)[k]]
+                nn=unlist(strsplit(readreg[i,3],","))
+                mm=unlist(strsplit(readpos[i,3],","))
+                mm3=mm[nn==colnames(regions)[k]]
+                nn=unlist(strsplit(readreg[i,4],","))
+                mm=unlist(strsplit(readpos[i,4],","))
+                mm4=mm[nn==colnames(regions)[k]]
+                tt=list(mm1=mm1,mm2=mm2,mm3=mm3,mm4=mm4)
+        # tt is a list of 4 lists (one position each) that contains the positions in the reference HLA types where there is a matching 10-mer of the current read of the k's gene, where k is whichever gene that appears more than `thresh` times (it can appear maximal 4 times as it is only checking 4 positions)
 
-		nn=unlist(strsplit(readreg[i,1],","))
-		mm=unlist(strsplit(readpos[i,1],","))
-		mm1=mm[nn==colnames(regions)[k]]
-		nn=unlist(strsplit(readreg[i,2],","))
-		mm=unlist(strsplit(readpos[i,2],","))
-		mm2=mm[nn==colnames(regions)[k]]
-		nn=unlist(strsplit(readreg[i,3],","))
-		mm=unlist(strsplit(readpos[i,3],","))
-		mm3=mm[nn==colnames(regions)[k]]
-		nn=unlist(strsplit(readreg[i,4],","))
-		mm=unlist(strsplit(readpos[i,4],","))
-		mm4=mm[nn==colnames(regions)[k]]
-		tt=list(mm1=mm1,mm2=mm2,mm3=mm3,mm4=mm4)
-		##print(tt)
-		for(p1 in 1:3) for(p2 in (p1+1):4){
-                                   d1=as.double(tt[[p1]])
-                                   d2=as.double(tt[[p2]])
-                                   if(length(d1) & length(d2)){
-                                       right=0
-                                       val=1
-                                       if(p2>=3 & p1<=2) val=4
-                                       for(h in 1:length(d1)){
-                                           if(sum(d2-d1[h]==pos[p2]-pos[p1]) & !is.na(sum(d2-d1[h]==pos[p2]-pos[p1]))) 						right=val
-                                       }
-                                       correctgaps[i,k]=correctgaps[i,k]+right
-                                   }
-                               }
+                for(p1 in 1:3) {
+                    for(p2 in (p1 + 1):4) {
+                        d1 <- as.double(tt[[p1]])
+                        d2 <- as.double(tt[[p2]])
+                        
+                        if(length(d1) > 0 & length(d2) > 0) {
+                            right <- 0
+                            val <- ifelse(p2 >= 3 & p1 <= 2, 4, 1)
+                            
+                            for(h in 1:length(d1)) {
+                                diff_check <- sum(d2 - d1[h] == pos[p2] - pos[p1])
+                                if(!is.na(diff_check) & diff_check > 0) {
+                                    right <- val
+                                }
+                            }
+                            
+                            correctgaps[i, k] <- correctgaps[i, k] + right
+                        }
+                    }
+                }
             }
-	}
+	    }
     }
+    # So, I don't really understand what this is doing. It seems to check if each pair of the 10-mers.
+    # But this diff_check variable is quite mysterious: it is supposed to be a list but the if condition seems to only check the first element, and this right variable is never saved -- if there is a new pair to be calculated the previous value is automatically expired. Also, why that equals 4 is also not obvious.
+
+    # This whole method is trying to filter out some reads, so my guess is that it checks several kmers and see if that matches seen kmers in the reference files. This also links back to the indel issue when preparing these kmers -- if the positions are messed up this checking position step is nonsense.
 
     correctgapsc=regionsc*0
 ###relative positions
-    pos=c(11,21,rl-19,rl-29)
+    pos=c(11,21,rl-29,rl-19)
     # pos=c(11,21,121,131)
 
     for(i in 1:nrow(regionsc)){
-	zz=which(regionsc[i,]>=thresh)
-	##print(i)
-	if(length(zz)){
-
+	    zz=which(regionsc[i,]>=thresh)
+        if(length(zz)){
             for(k in zz){
+                nn=unlist(strsplit(readregc[i,1],","))
+                mm=unlist(strsplit(readposc[i,1],","))
+                mm1=mm[nn==colnames(regionsc)[k]]
+                nn=unlist(strsplit(readregc[i,2],","))
+                mm=unlist(strsplit(readposc[i,2],","))
+                mm2=mm[nn==colnames(regionsc)[k]]
+                nn=unlist(strsplit(readregc[i,3],","))
+                mm=unlist(strsplit(readposc[i,3],","))
+                mm3=mm[nn==colnames(regionsc)[k]]
+                nn=unlist(strsplit(readregc[i,4],","))
+                mm=unlist(strsplit(readposc[i,4],","))
+                mm4=mm[nn==colnames(regionsc)[k]]
+                tt=list(mm1=mm1,mm2=mm2,mm3=mm3,mm4=mm4)
 
-		nn=unlist(strsplit(readregc[i,1],","))
-		mm=unlist(strsplit(readposc[i,1],","))
-		mm1=mm[nn==colnames(regionsc)[k]]
-		nn=unlist(strsplit(readregc[i,2],","))
-		mm=unlist(strsplit(readposc[i,2],","))
-		mm2=mm[nn==colnames(regionsc)[k]]
-		nn=unlist(strsplit(readregc[i,3],","))
-		mm=unlist(strsplit(readposc[i,3],","))
-		mm3=mm[nn==colnames(regionsc)[k]]
-		nn=unlist(strsplit(readregc[i,4],","))
-		mm=unlist(strsplit(readposc[i,4],","))
-		mm4=mm[nn==colnames(regionsc)[k]]
-		tt=list(mm1=mm1,mm2=mm2,mm3=mm3,mm4=mm4)
-		##print(tt)
-		for(p1 in 1:3) for(p2 in (p1+1):4){
-                                   d1=as.double(tt[[p1]])
-                                   d2=as.double(tt[[p2]])
-                                   if(length(d1) & length(d2)){
-                                       right=0
-                                       val=1
-                                       if(p2>=3 & p1<=2) val=4
-                                       for(h in 1:length(d1)){
-                                           if(sum(d2-d1[h]==pos[p2]-pos[p1]) & !is.na(sum(d2-d1[h]==pos[p2]-pos[p1]))) 						right=val
-                                       }
-                                       correctgapsc[i,k]=correctgapsc[i,k]+right
-                                   }
-                               }
+                for(p1 in 1:3) {
+                    for(p2 in (p1 + 1):4) {
+                        d1 <- as.double(tt[[p1]])
+                        d2 <- as.double(tt[[p2]])
+                        
+                        if(length(d1) > 0 & length(d2) > 0) {
+                            right <- 0
+                            val <- ifelse(p2 >= 3 & p1 <= 2, 4, 1)
+                            
+                            for(h in 1:length(d1)) {
+                                diff_check <- sum(d2 - d1[h] == pos[p2] - pos[p1])
+                                if(!is.na(diff_check) & diff_check > 0) {
+                                    right <- val
+                                }
+                            }
+                            
+                            correctgaps[i, k] <- correctgaps[i, k] + right
+                        }
+                    }
+                }
             }
-	}
+	    }
     }
 
 ######gaps etc.
@@ -1258,15 +1267,13 @@ filterbyregion=function(seqs,seqnames,newkmers,regname){
 ####pick regions
     regbest=rep("None",nrow(correctgaps))
     for(i in which(rowSums(correctgaps)>0)){
-	regbest[i]=paste(colnames(correctgaps)[which(correctgaps[i,]==max(correctgaps[i,]))],collapse=",")
-
+	    regbest[i]=paste(colnames(correctgaps)[which(correctgaps[i,]==max(correctgaps[i,]))],collapse=",")
     }
 
 ####pick regions
     regbestc=rep("None",nrow(correctgapsc))
     for(i in which(rowSums(correctgapsc)>0)){
-	regbestc[i]=paste(colnames(correctgapsc)[which(correctgapsc[i,]==max(correctgapsc[i,]))],collapse=",")
-
+	    regbestc[i]=paste(colnames(correctgapsc)[which(correctgapsc[i,]==max(correctgapsc[i,]))],collapse=",")
     }
 
 #####mate pair info on best mappings
@@ -1407,11 +1414,7 @@ do_simon_read_stuff_with_that_and_that2 <- function(
         readpos2=cbind(kk[substring(seqs2,11,20)],kk[substring(seqs2,21,30)],kk[substring(seqs2,rl-29,rl-20)],kk[substring(seqs2,rl-19,rl-10)])
         readposc=cbind(kk[substring(compseqs,11,20)],kk[substring(compseqs,21,30)],kk[substring(compseqs,rl-29,rl-20)],kk[substring(compseqs,rl-19,rl-10)])
         readpos2c=cbind(kk[substring(compseqs2,11,20)],kk[substring(compseqs2,21,30)],kk[substring(compseqs2,rl-29,rl-20)],kk[substring(compseqs2,rl-19,rl-10)])
-        ## readpos=cbind(kk[substring(seqs,11,20)],kk[substring(seqs,21,30)],kk[substring(seqs,121,130)],kk[substring(seqs,131,140)])
-        ## readpos2=cbind(kk[substring(seqs2,11,20)],kk[substring(seqs2,21,30)],kk[substring(seqs2,121,130)],kk[substring(seqs2,131,140)])
-        ## readposc=cbind(kk[substring(compseqs,11,20)],kk[substring(compseqs,21,30)],kk[substring(compseqs,121,130)],kk[substring(compseqs,131,140)])
-        ## readpos2c=cbind(kk[substring(compseqs2,11,20)],kk[substring(compseqs2,21,30)],kk[substring(compseqs2,121,130)],kk[substring(compseqs2,131,140)])
-        ## print("##find alignments")
+
         vv <- rep(-1000,nrow(readpos))
         scoresmat=matrix(nrow=nrow(readpos),ncol=nrow(fullalleles))
         posmat=scoresmat

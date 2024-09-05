@@ -209,7 +209,7 @@ QUILT_HLA <- function(
         hla_run = TRUE,
         verbose = FALSE,
         downsampleToCov = downsampleToCov
-    )
+    ) # What is this doing? QUILT should be a class rather than a function, right?
     load(outfile1)
     unlink(outfile1)
     ## will return final_set_of_results
