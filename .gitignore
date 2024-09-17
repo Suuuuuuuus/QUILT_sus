@@ -28,3 +28,4 @@ Rplots.pdf
 results
 package*
 example*
+**/*.ipynb_checkpoints/

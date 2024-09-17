@@ -192,8 +192,8 @@ hla_perform_step_1_phasing <- function(
         samples=rownames(resmat)
         colnames(oldsnpinfo)=c("id","position","a0","a1")
 
-        ss=fullalleles[,match(oldsnpinfo[,2],ourpos)]
-        oldsnpinfo=oldsnpinfo[colSums(is.na(ss))==0,]
+        ss=fullalleles[,match(oldsnpinfo[,2],ourpos)] # 
+        oldsnpinfo=oldsnpinfo[colSums(is.na(ss))==0,] # **Y**
         ss=ss[,colSums(is.na(ss))==0]
 
         ss=t(ss)
