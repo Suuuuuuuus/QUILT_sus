@@ -435,13 +435,16 @@ hla_perform_step_1_phasing <- function(
 
         ##non-flipped
         phased1=(!is.na(phase1) & !is.na(phase2) & phase1<4 & phase2>4) |
-            (!is.na(phase1) & !is.na(phase2) & phase2-phase1>2 & phase1<4) | (!is.na(ourtypes1) & !is.na(ourtypes2) & ourtypes1==ourtypes2) | 
-            (is.na(d21) & !is.na(d12) & d12-d22>2 & d22<2) |  (is.na(d12) & !is.na(d21) & d21-d11>2 & d11<2)
+                (!is.na(phase1) & !is.na(phase2) & phase2-phase1>2 & phase1<4) | 
+                (!is.na(ourtypes1) & !is.na(ourtypes2) & ourtypes1==ourtypes2) | 
+                (is.na(d21) & !is.na(d12) & d12-d22>2 & d22<2) | 
+                (is.na(d12) & !is.na(d21) & d21-d11>2 & d11<2)
 
         ##flipped
         phased2=(!is.na(phase1) & !is.na(phase2) & phase1>4 & phase2<4) |
-            (!is.na(phase1) & !is.na(phase2) & phase1-phase2>2 & phase2<4) | 
-            (is.na(d21) & !is.na(d12) & d22-d12>2 & d12<2) |  (is.na(d12) & !is.na(d21) & d11-d21>2 & d21<2)
+                (!is.na(phase1) & !is.na(phase2) & phase1-phase2>2 & phase2<4) | 
+                (is.na(d21) & !is.na(d12) & d22-d12>2 & d12<2) | 
+                (is.na(d12) & !is.na(d21) & d11-d21>2 & d21<2)
 
         ##first and second alleles
 
@@ -463,6 +466,7 @@ hla_perform_step_1_phasing <- function(
         oldphase2=phase2
         phased1=phased1old
         phased2=phased2old
+        # for(extension in seq(50,50,50)){
         for(extension in seq(50,1000,50)){
             plot(oldphase1,oldphase2,col=1+as.double(phased1)+2*as.double(phased2))
             startandend=range(locs)
