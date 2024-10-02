@@ -301,7 +301,6 @@ make_single_snpformatalleles <- function(
     ##print("...done: filtering variants")
     
     cccc=paste(varset[,1],rep("W",nrow(varset)),varset[,2],rep("W",nrow(varset)),varset[,3],rep("W",nrow(varset)),sep="")
-    length(unique(cccc))
     cccc=unique(cccc)
     cccc2=cccc
     cccc=strsplit(cccc,"W")
@@ -464,8 +463,8 @@ make_single_hla_full_alleles_filled_in <- function(
     ##print("...done")
     
     qq=range(as.double(pos[,2]))
-    qq[1]=qq[1]-10
-    qq[2]=qq[2]+10
+    # qq[1]=qq[1]-10
+    # qq[2]=qq[2]+10
     
     temp=temp[,ourpos>=qq[1] & ourpos<=qq[2]]
     ourpos=ourpos[ourpos>=qq[1] & ourpos<=qq[2]]
@@ -536,7 +535,6 @@ make_single_hla_full_alleles_filled_in <- function(
         
         if(sum(temp[i,]=="*")){
             
-            ##print(i)
             cond=haps[,i]!=-1
             cond2=(temp[i,]=="*")
             alter=which(cond2==T)
