@@ -29,3 +29,5 @@ results
 package*
 example*
 *checkpoint*
+QUILT/Python/*.json
+QUILT/Python/*.html
