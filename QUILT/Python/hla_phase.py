@@ -243,6 +243,8 @@ def plot_first_step_phase(return_dict):
     plt.scatter(oldphase1, oldphase2, c=1 + phased1.astype(int) + 2 * phased2.astype(int))
     plt.title('Initial phasing')
     plt.colorbar()
+    plt.xlim((-25, 200))
+    plt.ylim((-25, 200))
     plt.show()
     return None
 
@@ -257,6 +259,8 @@ def plot_last_step_phase(return_dict):
     plt.scatter(oldphase1[indices], oldphase2[indices], c = 'black', marker = 'x')
     plt.title('Final phasing')
     plt.colorbar()
+    plt.xlim((-25, 200))
+    plt.ylim((-25, 200))
     plt.show()
     return None
 
@@ -266,6 +270,7 @@ def phase_hla_on_haplotypes(gene,
                             hlatypes,
                             phased_vcf, 
                             reference_allele_ary, 
+                            strict_snp_filter = True,
                             read_from_QUILT = False, 
                             subset_vcf_samples = None,
                             sample_linker = None):
@@ -405,7 +410,6 @@ def phase_hla_on_haplotypes(gene,
     # Imputing database alleles
     for i, a in enumerate(haps.columns):
         haps_undetermined = haps[a] == -1
-        # db_determined = dbfull.loc[a, :] != "*"
 
         allele_col = haps[~haps_undetermined][a]
         subseted_db =  haps[~haps_undetermined] 
@@ -441,7 +445,6 @@ def phase_hla_on_haplotypes(gene,
         zz3[i] = np.sum(positions == positions[i])
     filter_conditions = (zz3 == 1) & (zz == 1)
 
-    # keep sites uniquely mapping, not overlapping another SNP, with at most 10% gaps and 2-fold more non-ancestral than gaps
     snpinfo = prepared_vcf.loc[filter_conditions, :].reset_index(drop = True)
     snpinfo = snpinfo.iloc[:,[3, 0, 1, 2]]
     variant_alleles = variant_alleles.loc[filter_conditions, :]
@@ -463,39 +466,6 @@ def phase_hla_on_haplotypes(gene,
     retained_samples = snp_haps.columns[4:].tolist()
     hlatypes = hlatypes[hlatypes['Sample ID'].isin(retained_samples)].reset_index(drop = True)
     
-#     typed_samples = hlatypes['Sample ID'].tolist()
-    
-#     command = "bcftools view -r chr6:" + str(int(full_start - 1000)) + "-" + str(int(full_end + 1000)) + " " + phased_vcf
-#     if read_from_QUILT:
-#         command = command + " | bcftools filter -i 'INFO_SCORE > 0.5'"
-#     if subset_vcf_samples is not None:
-#         command = command + ' | bcftools view -s ' + subset_vcf_samples
-
-#     snp_haps = subprocess.run(command, shell = True, capture_output = True, text = True).stdout[:-1].split('\n')
-#     snp_haps = [i.split('\t') for i in snp_haps if '##' not in i]
-#     snp_haps = pd.DataFrame(snp_haps)
-#     snp_haps.columns = snp_haps.iloc[0]  # Set the first row as the header
-#     snp_haps = snp_haps[1:].reset_index(drop = True)
-    
-#     ## Remove this renaming bit later:
-#     if sample_linker is not None:
-#         renamed_cols = snp_haps.columns[:9].tolist()
-#         for s in subset_vcf_samples.split(','):
-#             renamed_cols.append(sample_linker[s])
-#         snp_haps.columns = renamed_cols
-#         for c in snp_haps.columns[9:]: # So only retain GT field, assume it is always the first but later clean vcf first before putting in to phasing
-#             snp_haps[c] = snp_haps[c].str.split(':').str.get(0) 
-#     ## End of removal
-
-#     retained_samples = snp_haps.columns.intersection(typed_samples).tolist()
-#     hlatypes = hlatypes[hlatypes['Sample ID'].isin(retained_samples)].reset_index(drop = True)
-
-#     snp_haps = snp_haps.drop(columns = ['#CHROM', 'ID', 'QUAL', 'FILTER', 'INFO', 'FORMAT'])
-#     snp_haps = snp_haps[(snp_haps['REF'].str.len() == 1) & (snp_haps['ALT'].str.len() == 1)]
-#     snp_haps = snp_haps.rename(columns = {'POS': 'pos', 'REF': 'ref', 'ALT': 'alt'})
-#     snp_haps['snp'] = (snp_haps['pos'].astype(str) + snp_haps['ref'] + snp_haps['alt']).values
-#     snp_haps['pos'] = snp_haps['pos'].astype(int)
-#     snp_haps = snp_haps[['snp', 'pos', 'ref', 'alt'] + retained_samples]
     hrcfirstalleles = snp_haps[['snp', 'pos', 'ref', 'alt']]
     hrcsecondalleles = snp_haps[['snp', 'pos', 'ref', 'alt']]
     for s in retained_samples:
@@ -617,8 +587,11 @@ def phase_hla_on_haplotypes(gene,
     for i in range(obsgen.shape[1]):
         with np.errstate(invalid='ignore'):
             corr[i] = obsgen.loc[:, i].corr(predgen.loc[:, i])
-
-    valid_corr_indices = np.where((corr > 0.8) & (~np.isnan(corr)))[0]
+    
+    if strict_snp_filter:
+        valid_corr_indices = np.where((~np.isnan(corr)) & (corr > 0.8))[0]
+    else:
+        valid_corr_indices = np.where(~np.isnan(corr))[0]
 
     dist11 = phase_subtraction(hrcfirstalleles, predfirstalleles, valid_corr_indices)
     dist12 = phase_subtraction(hrcfirstalleles, predsecondalleles, valid_corr_indices)
@@ -633,23 +606,36 @@ def phase_hla_on_haplotypes(gene,
     d12 = dist12
     d22 = dist22
 
-    phased1 = (
-        (~np.isnan(phase1) & ~np.isnan(phase2) & (phase1 < 4) & (phase2 > 4)) |
-        (~np.isnan(phase1) & ~np.isnan(phase2) & (phase2 - phase1 > 2) & (phase1 < 4)) |
-        ((reftypes1 != 'nan') & (reftypes2 != 'nan') & (reftypes1 == reftypes2)) |
-        (np.isnan(d21) & ~np.isnan(d12) & (d12 - d22 > 2) & (d22 < 2)) |
-        (np.isnan(d12) & ~np.isnan(d21) & (d21 - d11 > 2) & (d11 < 2))
-    )
+    if strict_snp_filter:
+        phased1 = (
+            (~np.isnan(phase1) & ~np.isnan(phase2) & (phase1 < 4) & (phase2 > 4)) |
+            (~np.isnan(phase1) & ~np.isnan(phase2) & (phase2 - phase1 > 2) & (phase1 < 4)) |
+            ((reftypes1 != 'nan') & (reftypes2 != 'nan') & (reftypes1 == reftypes2)) |
+            (np.isnan(d21) & ~np.isnan(d12) & (d12 - d22 > 2) & (d22 < 2)) |
+            (np.isnan(d12) & ~np.isnan(d21) & (d21 - d11 > 2) & (d11 < 2))
+        )
 
-    phased2 = (
-        (~np.isnan(phase1) & ~np.isnan(phase2) & (phase1 > 4) & (phase2 < 4)) |
-        (~np.isnan(phase1) & ~np.isnan(phase2) & (phase1 - phase2 > 2) & (phase2 < 4)) |
-        (np.isnan(d21) & ~np.isnan(d12) & (d22 - d12 > 2) & (d12 < 2)) |
-        (np.isnan(d12) & ~np.isnan(d21) & (d11 - d21 > 2) & (d21 < 2))
-    )
+        phased2 = (
+            (~np.isnan(phase1) & ~np.isnan(phase2) & (phase1 > 4) & (phase2 < 4)) |
+            (~np.isnan(phase1) & ~np.isnan(phase2) & (phase1 - phase2 > 2) & (phase2 < 4)) |
+            (np.isnan(d21) & ~np.isnan(d12) & (d22 - d12 > 2) & (d12 < 2)) |
+            (np.isnan(d12) & ~np.isnan(d21) & (d11 - d21 > 2) & (d21 < 2))
+        )
+    else:
+        phased1 = (
+            (~np.isnan(phase1) & ~np.isnan(phase2) & (phase1 < 4) & (phase2 > 4)) |
+            (~np.isnan(phase1) & ~np.isnan(phase2) & (phase2 - phase1 >= 5)) |
+            ((reftypes1 != 'nan') & (reftypes2 != 'nan') & (reftypes1 == reftypes2)) |
+            (np.isnan(d21) & ~np.isnan(d12) & (d12 - d22 > 2)) |
+            (np.isnan(d12) & ~np.isnan(d21) & (d21 - d11 > 2))
+        )
 
-    allele1 = np.where(phased1, reftypes1, np.where(phased2, reftypes2, 'None'))
-    allele2 = np.where(phased1, reftypes2, np.where(phased2, reftypes1, 'None'))
+        phased2 = (
+            (~np.isnan(phase1) & ~np.isnan(phase2) & (phase1 > 4) & (phase2 < 4)) |
+            (~np.isnan(phase1) & ~np.isnan(phase2) & (phase1 - phase2 >= 5)) |
+            (np.isnan(d21) & ~np.isnan(d12) & (d22 - d12 > 2)) |
+            (np.isnan(d12) & ~np.isnan(d21) & (d11 - d21 > 2))
+        )
 
     phased1old = phased1.copy()
     phased2old = phased2.copy()
@@ -660,7 +646,7 @@ def phase_hla_on_haplotypes(gene,
         'b38_start': full_start,
         'b38_end': full_end,
         'hlatypes': hlatypes,
-        'initial_phase_res': (oldphase1, oldphase2, phased1, phased2),
+        'initial_phase_res': (oldphase1, oldphase2, phased1old, phased2old),
         'merged_snps': merged_snps,
         'db_hap1': predfirstalleles,
         'db_hap2': predsecondalleles,
@@ -670,10 +656,18 @@ def phase_hla_on_haplotypes(gene,
     
     phase_df = pd.DataFrame({'Sample': hlatypes['Sample ID'].values, 'first_step_phase1': phased1, 'first_step_phase2': phased2})
 
-    all_haplotypes = np.append(allele1, allele2)
-    nameset = np.unique(all_haplotypes[all_haplotypes != 'None'])
-
     for extension in range(50, 1001, 50):
+        if np.sum(~(phased1 | phased2)) == 0:
+            break
+        
+        allele1 = np.where(phased1, reftypes1, np.where(phased2, reftypes2, 'None'))
+        allele1[np.where(allele1 == '-9')[0]] = 'None'
+        allele2 = np.where(phased1, reftypes2, np.where(phased2, reftypes1, 'None'))
+        allele2[np.where(allele2 == '-9')[0]] = 'None'
+        
+        all_haplotypes = np.append(allele1, allele2)
+        nameset = np.unique(all_haplotypes[all_haplotypes != 'None'])
+        
         newstart = start - extension
         newend = end + extension
 
@@ -753,7 +747,7 @@ def phase_hla_on_haplotypes(gene,
     return_dict['unphased_df'] = unphased_df
     return return_dict
 
-def phase_trios(r, gene, hlatypes = hlatypes):
+def phase_trios(r, gene, hlatypes):
     kid = r['Individual ID']
     pat = r['Paternal ID']
     mat = r['Maternal ID']
