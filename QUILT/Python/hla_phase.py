@@ -274,6 +274,15 @@ def phase_hla_on_haplotypes(gene,
                             read_from_QUILT = False, 
                             subset_vcf_samples = None,
                             sample_linker = None):
+    print('>>> Phasing commences')
+    print('>>> Parameters for this run:')
+    print('>>> - gene:', gene)
+    print('>>> - db directory:', ipd_gen_file_dir)
+    print('>>> - vcf file:', phased_vcf)
+    print('>>> - strict filtering on SNPs:', strict_snp_filter)
+    print('>>> - read from QUILT:', read_from_QUILT)
+    print('>>> - subset samples:', (subset_vcf_samples is not None))
+    
     strand = hla_gene_information[hla_gene_information['Name'] == ('HLA-' + gene)]['Strand'].iloc[0]
     reference_allele = reference_allele_ary[np.char.find(reference_allele_ary, gene) != -1][0]
     nucleotides = ['A', 'T', 'C', 'G']
@@ -424,7 +433,7 @@ def phase_hla_on_haplotypes(gene,
 
             target_haplotype = haps.loc[substituted_indices, closest_allele]
             substitutable = target_haplotype[target_haplotype.values != -1]
-            substituted_nucleotides[substitutable.index] = substitutable.values
+            substituted_nucleotides[np.where(np.in1d(substituted_indices, substitutable.index))[0]] = substitutable.values
             closest_allele_idx += 1
 
         haps.loc[substituted_indices, a] = substituted_nucleotides
