@@ -36,84 +36,19 @@ quilt_hla_one_sample <- function(
     ## that: reads that map to the region of interest (gene) on chr6
     ##
 
-    that <- get_that(
-        bamfile = bamfile,
-        chr = chr,
-        regstart = regstart,
-        regend = regend
+    out <- read_alignment_scores_from_wfa_and_process(
+        bamfile,
+        region,
+        regstart,
+        regend
     )
+    # Move the following to align.py and test.
+    # Remember convert probability to likelihood.
     
-    ##
-    ## that2: reads that map to the alternative HLA contigs
-    ##
-    ## refseq.txt contains all the names of alleles that can be mapped to
-    this <- read.delim(refseq_file, header = FALSE) # This is actually the dict file
-    
-    that2 <- get_that2(
-        this = this,
-        region = region,
-        that = that,
-        bamfile = bamfile
-    )
-
-
-    that <- filter_that(
-        that = that,
-        chr = chr,
-        regstart = regstart,
-        regend = regend
-    )
-
-    that2 <- filter_that2(
-        that2 = that2,
-        chr = chr,
-        regstart = regstart,
-        regend = regend,
-        region = region
-    )
-
-
-    ## now have filtered matrices
-    ## now more sophisticated filtering to remove reads mapping to alternative HLA alleles
-    ## uses the set of ALL kmers found in all HLA alleles, to determine whether kmers can be found ordered in correct vs. other alleles
-    out <- further_filter_that_and_that2(
-        that = that,
-        that2 = that2,
-        newkmers = newkmers,
-        region = region
-    )
-    that <- out[["that"]]
-    that2 <- out[["that2"]]
-
-
-
-
-    ## print("#########could worry have no reads; perhaps a dummy??")
-    ## have at least two reads, both that and that2?
-    ## still need to be careful later!
-    ## now have both types of read, filter and process
-    ## deal with any problems of conversion,w now, just make sure both have at least two reads; duplicate reads are not overcounted in the end
-    if(nrow(that)==1) that <- rbind(that,that)
-    if(nrow(that2)==1) that2 <- rbind(that2,that2)
-    if(nrow(that)==0 & nrow(that2)>0) that <- that2[1:2,]
-    if(nrow(that2)==0 & nrow(that)>0) that2 <- that[1:2,]
-
-
-    ##
-    ## don't entirely know what this code is doing, the first part of Simon's read mapping part
-    ##
-    ## print_message("Interpret mapped sequence data")
-    out <- do_simon_read_stuff_with_that_and_that2(
-        that = that,
-        that2 = that2,
-        lookup = lookup,
-        revlookup = revlookup,
-        fullalleles = fullalleles,
-        regstart = regstart,
-        regend = regend,
-        region = region,
-        kk = kk
-    )
+    # if(nrow(that)==1) that <- rbind(that,that)
+    # if(nrow(that2)==1) that2 <- rbind(that2,that2)
+    # if(nrow(that)==0 & nrow(that2)>0) that <- that2[1:2,]
+    # if(nrow(that2)==0 & nrow(that)>0) that2 <- that[1:2,]
     
     readlikelihoodmat <- out[["readlikelihoodmat"]]
     readset1 <- out[["readset1"]]
@@ -1641,7 +1576,10 @@ do_simon_read_stuff_with_that_and_that2 <- function(
 
 
 read_alignment_scores_from_wfa_and_process <- function(
+    bamfile,
     region,
+    regstart,
+    regend,
     maxmismatch=5
 ) {
     ## below is now true unless BOTH have no data
@@ -1650,7 +1588,7 @@ read_alignment_scores_from_wfa_and_process <- function(
     dir.create(python_output_dir, showWarnings = FALSE)
 
     script <- "hla_align.py"
-    system(paste("python", script, python_output_dir))
+    system(paste("python", script, bamfile, region, regstart, regend, python_output_dir))
 
     that <- read.csv(file.path(python_output_dir, "reads1.csv"), hedaer = FALSE)
     that2 <- read.csv(file.path(python_output_dir, "reads2.csv"), hedaer = FALSE)
@@ -1659,6 +1597,7 @@ read_alignment_scores_from_wfa_and_process <- function(
 
     if(nrow(that) > 0 & nrow(that2) > 0){
         rl = get_mode(nchar(that[, 11]))
+
         minscore=log(choose((rl-maxmismatch), maxmismatch) * ((0.001)**maxmismatch) * (0.999**(rl-maxmismatch)))
 
         maxes2=1:nrow(scoresmat2)*0
