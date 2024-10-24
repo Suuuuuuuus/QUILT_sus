@@ -1640,7 +1640,139 @@ do_simon_read_stuff_with_that_and_that2 <- function(
 }
 
 
+read_alignment_scores_from_wfa_and_process <- function(
+    region,
+    maxmismatch=5
+) {
+    ## below is now true unless BOTH have no data
+    print(getwd()) # Remove this later after specifying relevant path
+    python_output_dir = tempdir()
+    dir.create(python_output_dir, showWarnings = FALSE)
 
+    script <- "hla_align.py"
+    system(paste("python", script, python_output_dir))
+
+    that <- read.csv(file.path(python_output_dir, "reads1.csv"), hedaer = FALSE)
+    that2 <- read.csv(file.path(python_output_dir, "reads2.csv"), hedaer = FALSE)
+    scoresmat <- read.csv(file.path(python_output_dir, "scoresmat1.csv"), hedaer = FALSE)
+    scoresmat2 <- read.csv(file.path(python_output_dir, "scoresmat2.csv"), hedaer = FALSE)
+
+    if(nrow(that) > 0 & nrow(that2) > 0){
+        rl = get_mode(nchar(that[, 11]))
+        minscore=log(choose((rl-maxmismatch), maxmismatch) * ((0.001)**maxmismatch) * (0.999**(rl-maxmismatch)))
+
+        maxes2=1:nrow(scoresmat2)*0
+        for(i in 1:length(maxes2)){
+            maxes2[i]=max(scoresmat2[i,])
+        }
+        maxes=1:nrow(scoresmat)*0
+        for(i in 1:length(maxes)){
+            maxes[i]=max(scoresmat[i,])
+        }
+
+        rownames(scoresmat)=that[,1]
+        rownames(scoresmat2)=that2[,1]
+
+        readind=as.integer(as.numeric(that[,2])/64)%%4
+        readind2=as.integer(as.numeric(that2[,2])/64)%%4
+        cond=!is.na(maxes) & maxes>=minscore
+        cond2=!is.na(maxes2) & maxes2>=minscore
+
+        allreadind=c(readind[cond],readind2[cond2])
+        allscores=rbind(scoresmat[cond,],scoresmat2[cond2,])
+  
+        pairedscores=matrix(ncol=ncol(allscores),nrow=length(unique(rownames(allscores))))
+        rownames(pairedscores)=unique(rownames(allscores))
+        if (nrow(pairedscores) > 0) {
+            for(i in 1:nrow(pairedscores)){
+                t1=allscores[rownames(allscores)==rownames(pairedscores)[i],]
+                t2=allreadind[rownames(allscores)==rownames(pairedscores)[i]]
+                pairedscores[i,]=0
+                if(length(t2)==1) pairedscores[i,]=t1
+                if(length(t2)>1){
+                    if(sum(t2==1)){
+                        pairedscores[i,]=pairedscores[i,]+t1[which(t2==1)[1],]
+                    }
+                    if(sum(t2==2)){
+                        pairedscores[i,]=pairedscores[i,]+t1[which(t2==2)[1],]
+                    }
+                }
+            }
+        }
+        ##print_message("Get score for pairs of alleles, and again filter so now we only allow e.g. equivalent of 5 mismatches among 300bp")
+        ## print_message("First remove read pairs mismatching all alleles strongly")
+        if (nrow(pairedscores) > 0) {
+            newmaxes=1:nrow(pairedscores)*0
+            for(i in 1:length(newmaxes)) {
+                newmaxes[i]=max(pairedscores[i,])
+            }
+            ##remove
+            pairedscores=pairedscores[newmaxes>=minscore, , drop = FALSE]
+            newmaxes=newmaxes[newmaxes>=minscore]
+            ##get scores relative to best allele
+            temp=pairedscores-newmaxes
+            ##for very bad scores, add a small amount
+            ##or could come from elsewhere in the genome so it is well worth being conservative here
+            temp=0.5*exp(temp)+1e-100
+        }
+        overall=matrix(0,nrow=ncol(pairedscores),ncol=ncol(pairedscores))
+        colnames(overall)=rownames(ncol(db))
+        rownames(overall)=rownames(ncol(db))
+        qq=overall*0
+        ##print_message("Percent final scoring complete:")
+        if (nrow(pairedscores) > 0) {
+            for(i in 1:nrow(pairedscores)){
+                ##print(i/nrow(pairedscores)*100)
+                qq=qq*0
+                m1=qq+temp[i,]
+                m1=m1+t(m1)
+                overall=overall+log(m1)
+            }
+        }
+        readlikelihoodmat <- overall
+        readset1 <- that
+        readset2 <- that2
+        readscaledlikelihoodmat <- NULL ## overwritten later it looks like
+        fourdigitreadscaledlikelihoodmat <- NULL ## overwritten later it looks like
+        intersectfourdigitreadscaledlikelihoodmat <- NULL
+        intersectquiltscaledlikelihoodmat <- NULL
+        intersectreadscaledlikelihoodmat <- NULL
+        combinedscaledlikelihoodmat <- NULL
+        combinedresults <- NULL
+        mappingonlyresults <- NULL
+    } else {
+        readlikelihoodmat <- NULL
+        readset1 <- NULL
+        readset2 <- NULL
+        pairedscores <- NULL
+        readscaledlikelihoodmat <- NULL
+        fourdigitreadscaledlikelihoodmat <- NULL
+        intersectfourdigitreadscaledlikelihoodmat <- NULL
+        intersectquiltscaledlikelihoodmat <- NULL
+        intersectreadscaledlikelihoodmat <- NULL
+        combinedscaledlikelihoodmat <- NULL
+        combinedresults <- NULL
+        mappingonlyresults <- NULL
+        overall <- NULL
+    }
+    return(
+        list(
+            readlikelihoodmat = readlikelihoodmat,
+            readset1 = readset1,
+            readset2 = readset2,
+            pairedscores = pairedscores,
+            readscaledlikelihoodmat = readscaledlikelihoodmat,
+            fourdigitreadscaledlikelihoodmat = fourdigitreadscaledlikelihoodmat,
+            intersectfourdigitreadscaledlikelihoodmat = intersectfourdigitreadscaledlikelihoodmat,
+            intersectquiltscaledlikelihoodmat = intersectquiltscaledlikelihoodmat,
+            intersectreadscaledlikelihoodmat = intersectreadscaledlikelihoodmat,
+            combinedscaledlikelihoodmat = combinedscaledlikelihoodmat,
+            combinedresults = combinedresults,
+            mappingonlyresults = mappingonlyresults,
+            overall = overall
+        )
+    )
+}
 
 
 
