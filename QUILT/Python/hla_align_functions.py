@@ -105,18 +105,20 @@ def calculate_loglikelihood(reads, db, temperature = 100):
         for i, (seq, bq) in enumerate(zip(reads['sequence'], reads['base_quality'])):
             result = ref(seq)
             refseq_aligned = refseq[result.pattern_start:result.pattern_end]
-            cigars = result.cigartuples
-            score = result.score
-            cigars, score = adjust_align_score(cigars, score)
-            likelihood_per_read_per_allele = calculate_score_per_alignment(seq, refseq_aligned, bq)
+            seq_aligned = seq[result.text_start:result.text_end]
+#             cigars = result.cigartuples
+#             score = result.score
+#             cigars, score = adjust_align_score(cigars, score)
+            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
             scores_mat[i, j] = likelihood_per_read_per_allele
         for i, (seq, bq) in enumerate(zip(reads['rev_seq'], reads['rev_bq'])):
             result = ref(seq)
             refseq_aligned = refseq[result.pattern_start:result.pattern_end]
-            cigars = result.cigartuples
-            score = result.score
-            cigars, score = adjust_align_score(cigars, score)
-            likelihood_per_read_per_allele = calculate_score_per_alignment(seq, refseq_aligned, bq)
+            seq_aligned = seq[result.text_start:result.text_end]
+#             cigars = result.cigartuples
+#             score = result.score
+#             cigars, score = adjust_align_score(cigars, score)
+            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
             rev_scores_mat[i, j] = likelihood_per_read_per_allele
 
     reads = reads.drop(columns = ['rev_seq', 'rev_bq'])
