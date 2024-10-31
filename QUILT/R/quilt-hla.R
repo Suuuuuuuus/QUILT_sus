@@ -172,12 +172,6 @@ QUILT_HLA <- function(
     ##
     ## regs <- c("A","B","C","DMA" , "DMB" , "DOA"  ,"DOB",  "DPA1", "DPA2", "DPB1" ,"DPB2" ,"DQA1" ,"DQA2" ,"DQB1" ,"DRA",  "DRB1", "DRB5", "E", "F" ,   "G",    "H", "J" ,   "K",    "L",   "MICA", "MICB", "P", "S",    "T" ,   "TAP1" ,"TAP2", "U",    "V",    "W")
 
-    kk <- unique(kmers)
-    names(kk) <- kk
-    for(i in 1:length(kk)) {
-        kk[i] <- paste(positions[kmers==names(kk)[i]],collapse=",")
-    }
-
     ##
     ## do the normal QUILT part first. don't need to save this per-se
     ##
@@ -236,7 +230,6 @@ QUILT_HLA <- function(
         lookup = lookup,
         revlookup = revlookup,
         fullalleles = fullalleles,
-        kk = kk,
         quilt_hla_haplotype_panelfile = quilt_hla_haplotype_panelfile,
         quilt_seed = quilt_seed,
         quilt_buffer = quilt_buffer,
