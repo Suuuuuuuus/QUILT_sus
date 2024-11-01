@@ -43,6 +43,7 @@ quilt_hla_one_sample <- function(
     pairedscores <- read.table(file.path(python_output_dir, "mate_likelihood_matrix.ssv"), header = TRUE, row.names = 1, sep = " ", check.names = FALSE)
     readlikelihoodmat <- as.matrix(readlikelihoodmat)
     pairedscores <- as.matrix(pairedscores)
+    overall <- readlikelihoodmat
 
     that <- readset1
     that2 <- readset2
