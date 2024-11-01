@@ -212,6 +212,9 @@ def read_vcf(start, end, phased_vcf, hlatypes, read_from_QUILT = False, subset_v
 
     snp_haps = snp_haps.drop(columns = ['#CHROM', 'ID', 'QUAL', 'FILTER', 'INFO', 'FORMAT'])
     snp_haps = snp_haps[(snp_haps['REF'].str.len() == 1) & (snp_haps['ALT'].str.len() == 1)]
+    # Test new
+    snp_haps = snp_haps.drop_duplicates(subset='POS', keep=False)
+    # End of test new
     snp_haps = snp_haps.rename(columns = {'POS': 'pos', 'REF': 'ref', 'ALT': 'alt'})
     snp_haps['snp'] = (snp_haps['pos'].astype(str) + snp_haps['ref'] + snp_haps['alt']).values
     snp_haps['pos'] = snp_haps['pos'].astype(int)
@@ -665,7 +668,7 @@ def phase_hla_on_haplotypes(gene,
     
     phase_df = pd.DataFrame({'Sample': hlatypes['Sample ID'].values, 'first_step_phase1': phased1, 'first_step_phase2': phased2})
 
-    for extension in range(50, 1001, 50):
+    for extension in range(0, 1001, 50):
         if np.sum(~(phased1 | phased2)) == 0:
             break
         
