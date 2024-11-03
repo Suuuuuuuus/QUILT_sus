@@ -21,9 +21,6 @@ quilt_hla_one_sample <- function(
     summary_best_alleles_threshold
 ) {
 
-    ##
-    ## print 
-    ##
     n <- length(bamfiles)
     if (iSample %in% (match(1:10, ceiling(10 * (1:n / n))))) {
         print_message(paste0("Processing file ", iSample, " out of ", n))
@@ -56,6 +53,8 @@ quilt_hla_one_sample <- function(
     combinedscaledlikelihoodmat <- NULL
     combinedresults <- NULL
     mappingonlyresults <- NULL
+    
+    unlink(python_output_dir)
     
     ##
     ## really strong Robbie hack because I don't know nature of how below works
