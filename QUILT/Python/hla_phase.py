@@ -43,6 +43,18 @@ pd.options.mode.chained_assignment = None
 # Genuine logics changed from the main script were marked by string **X** in the original R files.
 # Simplicity changes were marked by string **Y**
 
+def calculate_phasing_concordance(df1, df2):
+    omit_strs = ['np.nan', 'N/A', '-9']
+    result = pd.DataFrame(columns = ['region', 'concordance', 'n_valid_samples'])
+    for g in HLA_GENES:
+        r1s = df1[~df1[f'HLA-{g} 1'].isin(omit_strs)].index.to_numpy()
+        r2s = df2[~df2[f'HLA-{g} 1'].isin(omit_strs)].index.to_numpy()
+        common_indices = np.intersect1d(r1s, r2s)
+        total = len(common_indices)
+        concordance = (df1.loc[common_indices,f'HLA-{g} 1'] == df2.loc[common_indices,f'HLA-{g} 1']).sum()/len(common_indices)
+        result.loc[len(result)] = [g, concordance, total]
+    return result
+
 def visualise_phase(gene, ix, hlatypes, phase_res_dict, both_het = False):
     snpinfo = phase_res_dict['merged_snps']
     hrcfirstalleles = phase_res_dict['vcf_hap1']
@@ -571,22 +583,20 @@ def phase_hla_on_haplotypes(gene,
         for i, a in enumerate(reftype):
             if (a == '-9') or (a == 'nan'):
                 pass
-            elif '/' not in a:
-                if a in newhaps2.columns:
-                    predalleles[i, :] = newhaps2.loc[:, a].T
-                else:
-                    pass
             else:
                 valid_alleles = []
-                for j in a.split('/'):
-                    if ':' not in j:
-                        onefield = a.split('/')[0].split(':')[0]
-                        j = onefield + ':' + j
-                    if j in newhaps2.columns:
+                for j in a.split(' '):
+                    if '/' not in j:
                         valid_alleles.append(j)
-                if len(valid_alleles) == 0:
-                    pass
-                else:
+                    else:
+                        onefield = j.split('/')[0].split(':')[0]
+                        for jj in j.split('/'):
+                            if ':' in jj:
+                                valid_alleles.append(jj)
+                            else:
+                                valid_alleles.append(onefield + ':' + jj)
+                valid_alleles = [j for j in valid_alleles if j in newhaps2.columns]
+                if len(valid_alleles) != 0:
                     predalleles[i, :] = newhaps2.loc[:, valid_alleles].mean(axis = 1).values
         return predalleles
 

@@ -37,9 +37,9 @@ def hla_aligner(gene, bam, db, hla_gene_information,
     
     rl = reads1['sequence'].str.len().mode().values[0]
 
-    likemat1 = calculate_loglikelihood(reads1, db)
-    likemat2 = calculate_loglikelihood(reads2, db)
-    min_valid_prob = np.log(math.comb(rl, n_mismatches) * (assumed_bq**n_mismatches) * ((1 - assumed_bq)**(rl - n_mismatches)))
+    likemat1 = multi_calculate_loglikelihood_per_allele(reads1, db)
+    likemat2 = multi_calculate_loglikelihood_per_allele(reads2, db)
+    min_valid_prob = np.log(math.comb(rl, n_mismatches)) + n_mismatches*np.log(assumed_bq) + (rl - n_mismatches)*np.log(1 - assumed_bq)
 
     valid_indices1 = np.any(likemat1 >= min_valid_prob, axis=1)
     valid_indices2 = np.any(likemat2 >= min_valid_prob, axis=1)

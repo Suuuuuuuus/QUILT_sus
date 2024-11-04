@@ -91,42 +91,62 @@ def get_hla_reads(gene, bam, reads_apart_max = 1000):
         id_counts = reads['ID'].value_counts()
         valid_ids_ary = id_counts[id_counts == 2].index.tolist()
         reads = reads[reads['ID'].isin(valid_ids_ary)].sort_values(by = 'ID').reset_index(drop = True)
-        return reads
-
-def calculate_loglikelihood(reads, db, temperature = 100):
+        return reads 
+    
+def per_allele(j, a, db, reads, q):
+    refseq = (''.join(db[a].tolist())).replace('.', '')
+    ref = pywfa.WavefrontAligner(refseq)
+    scores_mat_ary1 = []
+    scores_mat_ary2 = []
+    for i, (seq, bq) in enumerate(zip(reads['sequence'], reads['base_quality'])):
+        result = ref(seq)
+        refseq_aligned = refseq[result.pattern_start:result.pattern_end]
+        seq_aligned = seq[result.text_start:result.text_end]
+        likelihood_per_read_per_allele1 = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
+        scores_mat_ary1.append(likelihood_per_read_per_allele1)
+    for i, (seq, bq) in enumerate(zip(reads['rev_seq'], reads['rev_bq'])):
+        result = ref(seq)
+        refseq_aligned = refseq[result.pattern_start:result.pattern_end]
+        seq_aligned = seq[result.text_start:result.text_end]
+        likelihood_per_read_per_allele2 = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
+        scores_mat_ary2.append(likelihood_per_read_per_allele2)
+    
+    q.put([j, np.array(scores_mat_ary1), np.array(scores_mat_ary2)])
+    
+def multi_calculate_loglikelihood_per_allele(reads, db, temperature=1):
     reads['rev_seq'] = reads['sequence'].apply(reverse_complement)
     reads['rev_bq'] = reads['base_quality'].apply(lambda bq: bq[::-1])
 
     scores_mat = np.zeros((reads.shape[0], db.shape[1]))
     rev_scores_mat = np.zeros((reads.shape[0], db.shape[1]))
+    
+    manager = multiprocessing.Manager()
+    q = manager.Queue()
+    processes = []
+    
     for j, a in enumerate(db.columns):
-        refseq = (''.join(db[a].tolist())).replace('.', '')
-        ref = pywfa.WavefrontAligner(refseq)
-        for i, (seq, bq) in enumerate(zip(reads['sequence'], reads['base_quality'])):
-            result = ref(seq)
-            refseq_aligned = refseq[result.pattern_start:result.pattern_end]
-            seq_aligned = seq[result.text_start:result.text_end]
-#             cigars = result.cigartuples
-#             score = result.score
-#             cigars, score = adjust_align_score(cigars, score)
-            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
-            scores_mat[i, j] = likelihood_per_read_per_allele
-        for i, (seq, bq) in enumerate(zip(reads['rev_seq'], reads['rev_bq'])):
-            result = ref(seq)
-            refseq_aligned = refseq[result.pattern_start:result.pattern_end]
-            seq_aligned = seq[result.text_start:result.text_end]
-#             cigars = result.cigartuples
-#             score = result.score
-#             cigars, score = adjust_align_score(cigars, score)
-            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
-            rev_scores_mat[i, j] = likelihood_per_read_per_allele
+        tmp = multiprocessing.Process(target=per_allele,
+                                          args=(j, a, db, reads, q))
+        tmp.start()
+        processes.append(tmp)
+
+    for process in processes:
+        process.join()
+    res_lst = []
+    while not q.empty():
+        res_lst.append(q.get())
+    else:
+        for res in res_lst:
+            j = res[0]
+            scores_mat[:, j] = res[1]
+            rev_scores_mat[:, j] = res[2]
 
     reads = reads.drop(columns = ['rev_seq', 'rev_bq'])
     scores_mat = np.maximum(scores_mat, rev_scores_mat)
     likelihood_mat = np.exp(scores_mat/temperature)/np.sum(np.exp(scores_mat/temperature), axis = 1, keepdims = True)
     loglikelihood_mat = np.log(likelihood_mat)
-    return loglikelihood_mat    
-    
+    return loglikelihood_mat   
+
 def process_db_genfile(gene, 
                             ipd_gen_file_dir, 
                             hla_gene_information):
@@ -202,6 +222,44 @@ def reverse_complement(seq):
     complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
     return ''.join(complement[base] for base in reversed(seq))
 
+def phred_to_scores(bq):
+    return [ord(char) - 33 for char in bq]
+
+'''
+def calculate_loglikelihood(reads, db, temperature = 1):
+    reads['rev_seq'] = reads['sequence'].apply(reverse_complement)
+    reads['rev_bq'] = reads['base_quality'].apply(lambda bq: bq[::-1])
+
+    scores_mat = np.zeros((reads.shape[0], db.shape[1]))
+    rev_scores_mat = np.zeros((reads.shape[0], db.shape[1]))
+    for j, a in enumerate(db.columns):
+        refseq = (''.join(db[a].tolist())).replace('.', '')
+        ref = pywfa.WavefrontAligner(refseq)
+        for i, (seq, bq) in enumerate(zip(reads['sequence'], reads['base_quality'])):
+            result = ref(seq)
+            refseq_aligned = refseq[result.pattern_start:result.pattern_end]
+            seq_aligned = seq[result.text_start:result.text_end]
+#             cigars = result.cigartuples
+#             score = result.score
+#             cigars, score = adjust_align_score(cigars, score)
+            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
+            scores_mat[i, j] = likelihood_per_read_per_allele
+        for i, (seq, bq) in enumerate(zip(reads['rev_seq'], reads['rev_bq'])):
+            result = ref(seq)
+            refseq_aligned = refseq[result.pattern_start:result.pattern_end]
+            seq_aligned = seq[result.text_start:result.text_end]
+#             cigars = result.cigartuples
+#             score = result.score
+#             cigars, score = adjust_align_score(cigars, score)
+            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
+            rev_scores_mat[i, j] = likelihood_per_read_per_allele
+
+    reads = reads.drop(columns = ['rev_seq', 'rev_bq'])
+    scores_mat = np.maximum(scores_mat, rev_scores_mat)
+    likelihood_mat = np.exp(scores_mat/temperature)/np.sum(np.exp(scores_mat/temperature), axis = 1, keepdims = True)
+    loglikelihood_mat = np.log(likelihood_mat)
+    return loglikelihood_mat   
+
 def adjust_align_score(cigartuples, score, gap_opening = 6, gap_extension = 2):
     trim_start_indicator = 0
     trim_end_indicator = 0
@@ -219,9 +277,6 @@ def adjust_align_score(cigartuples, score, gap_opening = 6, gap_extension = 2):
     newscore = score + gap_opening*(trim_start_indicator + trim_end_indicator) + gap_extension*(trim_start + trim_end)
     return cigartuples, newscore
 
-def phred_to_scores(bq):
-    return [ord(char) - 33 for char in bq]
-
 def recode_sequences(refseq, seq, cigars_lst):
     newseq = []
     newrefseq = []
@@ -238,6 +293,7 @@ def recode_sequences(refseq, seq, cigars_lst):
             newrefseq += [refseq[index:index + length]]
         index += length
     return "".join(newrefseq), "".join(newseq)
+'''
 
 def calculate_score_per_alignment(seq, refseq, bq, cg = -6, cm = 0, cx = -4, ce = -2):
     seq = list(seq)
