@@ -54,7 +54,7 @@ quilt_hla_one_sample <- function(
     combinedresults <- NULL
     mappingonlyresults <- NULL
     
-    unlink(python_output_dir)
+    #unlink(python_output_dir)
     
     ##
     ## really strong Robbie hack because I don't know nature of how below works
