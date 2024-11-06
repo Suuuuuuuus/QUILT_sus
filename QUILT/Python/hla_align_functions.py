@@ -219,8 +219,8 @@ def process_db_genfile(gene,
     return db
 
 def reverse_complement(seq):
-    complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
-    return ''.join(complement[base] for base in reversed(seq))
+    complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G', 'N': 'N'}
+    return ''.join(complement.get(base, 'N') for base in reversed(seq))
 
 def phred_to_scores(bq):
     return [ord(char) - 33 for char in bq]

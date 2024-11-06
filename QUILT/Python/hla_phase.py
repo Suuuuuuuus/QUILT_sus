@@ -43,16 +43,16 @@ pd.options.mode.chained_assignment = None
 # Genuine logics changed from the main script were marked by string **X** in the original R files.
 # Simplicity changes were marked by string **Y**
 
-def calculate_phasing_concordance(df1, df2):
+def calculate_phasing_concordance(df1, df2, g):
     omit_strs = ['np.nan', 'N/A', '-9']
     result = pd.DataFrame(columns = ['region', 'concordance', 'n_valid_samples'])
-    for g in HLA_GENES:
-        r1s = df1[~df1[f'HLA-{g} 1'].isin(omit_strs)].index.to_numpy()
-        r2s = df2[~df2[f'HLA-{g} 1'].isin(omit_strs)].index.to_numpy()
-        common_indices = np.intersect1d(r1s, r2s)
-        total = len(common_indices)
-        concordance = (df1.loc[common_indices,f'HLA-{g} 1'] == df2.loc[common_indices,f'HLA-{g} 1']).sum()/len(common_indices)
-        result.loc[len(result)] = [g, concordance, total]
+
+    r1s = df1[~df1[f'HLA-{g} 1'].isin(omit_strs)].index.to_numpy()
+    r2s = df2[~df2[f'HLA-{g} 1'].isin(omit_strs)].index.to_numpy()
+    common_indices = np.intersect1d(r1s, r2s)
+    total = len(common_indices)
+    concordance = (df1.loc[common_indices,f'HLA-{g} 1'] == df2.loc[common_indices,f'HLA-{g} 1']).sum()/len(common_indices)
+    result.loc[len(result)] = [g, concordance, total]
     return result
 
 def visualise_phase(gene, ix, hlatypes, phase_res_dict, both_het = False):
