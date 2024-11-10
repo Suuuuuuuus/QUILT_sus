@@ -93,7 +93,7 @@ def get_hla_reads(gene, bam, reads_apart_max = 1000):
         reads = reads[reads['ID'].isin(valid_ids_ary)].sort_values(by = 'ID').reset_index(drop = True)
         return reads 
     
-def per_allele(j, a, db, reads, q):
+def per_allele(j, a, db, reads, q = None):
     refseq = (''.join(db[a].tolist())).replace('.', '')
     ref = pywfa.WavefrontAligner(refseq)
     scores_mat_ary1 = []
@@ -111,7 +111,11 @@ def per_allele(j, a, db, reads, q):
         likelihood_per_read_per_allele2 = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
         scores_mat_ary2.append(likelihood_per_read_per_allele2)
     
-    q.put([j, np.array(scores_mat_ary1), np.array(scores_mat_ary2)])
+    res = [j, np.array(scores_mat_ary1), np.array(scores_mat_ary2)]
+    if q is None:
+        return res
+    else:
+        q.put(res)
     
 def multi_calculate_loglikelihood_per_allele(reads, db, temperature=1):
     reads['rev_seq'] = reads['sequence'].apply(reverse_complement)
