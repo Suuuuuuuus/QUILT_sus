@@ -46,9 +46,10 @@ pd.options.mode.chained_assignment = None
 def calculate_phasing_concordance(df1, df2, g):
     omit_strs = ['np.nan', 'N/A', '-9']
     result = pd.DataFrame(columns = ['region', 'concordance', 'n_valid_samples'])
-
-    r1s = df1[~df1[f'HLA-{g} 1'].isin(omit_strs)].index.to_numpy()
-    r2s = df2[~df2[f'HLA-{g} 1'].isin(omit_strs)].index.to_numpy()
+    df1 = df1.fillna('N/A')
+    df2 = df2.fillna('N/A')
+    r1s = df1[(~df1[f'HLA-{g} 1'].isin(omit_strs)) & (~df1[f'HLA-{g} 2'].isin(omit_strs))].index.to_numpy()
+    r2s = df2[(~df2[f'HLA-{g} 1'].isin(omit_strs)) & (~df2[f'HLA-{g} 2'].isin(omit_strs))].index.to_numpy()
     common_indices = np.intersect1d(r1s, r2s)
     total = len(common_indices)
     concordance = (df1.loc[common_indices,f'HLA-{g} 1'] == df2.loc[common_indices,f'HLA-{g} 1']).sum()/len(common_indices)
