@@ -37,8 +37,10 @@ def hla_aligner(gene, bam, db, hla_gene_information,
     
     rl = reads1['sequence'].str.len().mode().values[0]
 
-    likemat1 = multi_calculate_loglikelihood_per_allele(reads1, db)
-    likemat2 = multi_calculate_loglikelihood_per_allele(reads2, db)
+    likemat1 = calculate_loglikelihood(reads1, db)
+    likemat2 = calculate_loglikelihood(reads2, db)
+    # likemat1 = multi_calculate_loglikelihood_per_allele(reads1, db)
+    # likemat2 = multi_calculate_loglikelihood_per_allele(reads2, db)
     min_valid_prob = np.log(math.comb(rl, n_mismatches)) + n_mismatches*np.log(assumed_bq) + (rl - n_mismatches)*np.log(1 - assumed_bq)
 
     valid_indices1 = np.any(likemat1 >= min_valid_prob, axis=1)
@@ -75,15 +77,16 @@ def hla_aligner(gene, bam, db, hla_gene_information,
     return reads1, reads2, likemat_mate, likemat_paired
 
 def main(gene, bam, db, hla_gene_information, outdir):
+    print('+++Begin HLA aligner+++')
     r1, r2, mate, pair = hla_aligner(gene, bam, db, hla_gene_information)
-    
+    print('+++Saving+++')
     r1.to_csv(outdir + '/reads1.csv', header = False, index = False)
     r2.to_csv(outdir + '/reads2.csv', header = False, index = False)
     
     pd.set_option('display.float_format', '{:.6e}'.format)
     mate.to_csv(outdir + '/mate_likelihood_matrix.ssv', index=True, header=True, sep = ' ')
     pair.to_csv(outdir + '/pair_likelihood_matrix.ssv', index=True, header=True, sep = ' ')
-    
+    print('+++End HLA aligner+++')
 if __name__ == "__main__":
     gene = sys.argv[1]
     bam = sys.argv[2]

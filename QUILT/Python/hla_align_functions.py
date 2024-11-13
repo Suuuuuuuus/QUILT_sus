@@ -229,14 +229,15 @@ def reverse_complement(seq):
 def phred_to_scores(bq):
     return [ord(char) - 33 for char in bq]
 
-'''
 def calculate_loglikelihood(reads, db, temperature = 1):
+    print(f'+++Database has {db.shape[1]} alleles+++')
     reads['rev_seq'] = reads['sequence'].apply(reverse_complement)
     reads['rev_bq'] = reads['base_quality'].apply(lambda bq: bq[::-1])
 
     scores_mat = np.zeros((reads.shape[0], db.shape[1]))
     rev_scores_mat = np.zeros((reads.shape[0], db.shape[1]))
     for j, a in enumerate(db.columns):
+        print(f"+++Aligning to allele {j}+++")
         refseq = (''.join(db[a].tolist())).replace('.', '')
         ref = pywfa.WavefrontAligner(refseq)
         for i, (seq, bq) in enumerate(zip(reads['sequence'], reads['base_quality'])):
@@ -297,7 +298,7 @@ def recode_sequences(refseq, seq, cigars_lst):
             newrefseq += [refseq[index:index + length]]
         index += length
     return "".join(newrefseq), "".join(newseq)
-'''
+
 
 def calculate_score_per_alignment(seq, refseq, bq, cg = -6, cm = 0, cx = -4, ce = -2):
     seq = list(seq)

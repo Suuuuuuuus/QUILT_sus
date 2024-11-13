@@ -27,13 +27,14 @@ quilt_hla_one_sample <- function(
     }
     
     bamfile <- bamfiles[iSample]
-    id <- sub("\\.bam$", "", basename(bamfile))
+    # id <- sub("\\.bam$", "", basename(bamfile))
+    python_output_dir <- tempdir()
 
-    python_output_dir = paste0("/well/band/users/rbx225/GAMCC/results/hla/imputation/ref_panel/QUILT_prepared_reference_method/alignment_likelihoods/", id, "-", region)
-    #dir.create(python_output_dir, showWarnings = FALSE)
+    # python_output_dir = paste0("/well/band/users/rbx225/GAMCC/results/hla/imputation/ref_panel/QUILT_prepared_reference_method/alignment_likelihoods/", id, "-", region)
+    dir.create(python_output_dir, showWarnings = FALSE)
 
-    #script <- "../software/QUILT_sus/QUILT/Python/hla_align.py" # Modify this later to be relative path
-    #system(paste("python", script, region, bamfile, python_output_dir))
+    script <- "../software/QUILT_sus/QUILT/Python/hla_align.py" # Modify this later to be relative path
+    system(paste("python", script, region, bamfile, python_output_dir))
 
     readset1 <- read.csv(file.path(python_output_dir, "/reads1.csv"), header = FALSE)
     readset2 <- read.csv(file.path(python_output_dir, "/reads2.csv"), header = FALSE)
@@ -55,7 +56,7 @@ quilt_hla_one_sample <- function(
     combinedresults <- NULL
     mappingonlyresults <- NULL
     
-    #unlink(python_output_dir)
+    unlink(python_output_dir)
     
     ##
     ## really strong Robbie hack because I don't know nature of how below works
