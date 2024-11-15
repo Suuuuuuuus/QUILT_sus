@@ -123,16 +123,19 @@ def multi_calculate_loglikelihood_per_allele(reads, db, temperature=1):
 
     scores_mat = np.zeros((reads.shape[0], db.shape[1]))
     rev_scores_mat = np.zeros((reads.shape[0], db.shape[1]))
+
+    deresolute_alleles = deresolute_db_alleles(db)
     
     manager = multiprocessing.Manager()
     q = manager.Queue()
     processes = []
     
     for j, a in enumerate(db.columns):
-        tmp = multiprocessing.Process(target=per_allele,
-                                          args=(j, a, db, reads, q))
-        tmp.start()
-        processes.append(tmp)
+        if a not in deresolute_alleles.keys():
+            tmp = multiprocessing.Process(target=per_allele,
+                                            args=(j, a, db, reads, q))
+            tmp.start()
+            processes.append(tmp)
 
     for process in processes:
         process.join()
@@ -145,6 +148,11 @@ def multi_calculate_loglikelihood_per_allele(reads, db, temperature=1):
             scores_mat[:, j] = res[1]
             rev_scores_mat[:, j] = res[2]
 
+    for j, a in enumerate(db.columns):
+        if a in deresolute_alleles.keys():
+            scores_mat[:, j] = scores_mat[:, deresolute_alleles[a]]
+            rev_scores_mat[:, j] = rev_scores_mat[:, deresolute_alleles[a]]
+            
     reads = reads.drop(columns = ['rev_seq', 'rev_bq'])
     scores_mat = np.maximum(scores_mat, rev_scores_mat)
     likelihood_mat = np.exp(scores_mat/temperature)/np.sum(np.exp(scores_mat/temperature), axis = 1, keepdims = True)
@@ -229,36 +237,65 @@ def reverse_complement(seq):
 def phred_to_scores(bq):
     return [ord(char) - 33 for char in bq]
 
+def deresolute_db_alleles(df, n_mismatch = 5):
+    colnames = [col.split(':')[0] + ':' + col.split(':')[1] for col in df.columns]
+    res = {}
+    for i, c in enumerate(colnames):
+        if c in res.keys():
+            res[c].append(i)
+        else:
+            res[c] = [i]
+    result = {}
+
+    for group, indices in res.items():
+        sub_df = df.iloc[:, indices]
+        if sub_df.shape[1] == 1:
+            pass
+        else:
+            colref = sub_df.isin(['*']).sum().idxmin()
+            colrefidx = np.where(df.columns == colref)[0][0]
+            for i in indices:
+                col = df.columns[i]
+                differences = ((sub_df[col] != sub_df[colref]) & (sub_df[col] != '*') & (sub_df[colref] != '*'))
+                if (differences.sum() <= n_mismatch) and col != colref:
+                    result[col] = colrefidx
+    return result
+
 def calculate_loglikelihood(reads, db, temperature = 1):
-    print(f'+++Database has {db.shape[1]} alleles+++')
     reads['rev_seq'] = reads['sequence'].apply(reverse_complement)
     reads['rev_bq'] = reads['base_quality'].apply(lambda bq: bq[::-1])
 
     scores_mat = np.zeros((reads.shape[0], db.shape[1]))
     rev_scores_mat = np.zeros((reads.shape[0], db.shape[1]))
+    
+    deresolute_alleles = deresolute_db_alleles(db)
+    
     for j, a in enumerate(db.columns):
-        print(f"+++Aligning to allele {j}+++")
-        refseq = (''.join(db[a].tolist())).replace('.', '')
-        ref = pywfa.WavefrontAligner(refseq)
-        for i, (seq, bq) in enumerate(zip(reads['sequence'], reads['base_quality'])):
-            result = ref(seq)
-            refseq_aligned = refseq[result.pattern_start:result.pattern_end]
-            seq_aligned = seq[result.text_start:result.text_end]
-#             cigars = result.cigartuples
-#             score = result.score
-#             cigars, score = adjust_align_score(cigars, score)
-            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
-            scores_mat[i, j] = likelihood_per_read_per_allele
-        for i, (seq, bq) in enumerate(zip(reads['rev_seq'], reads['rev_bq'])):
-            result = ref(seq)
-            refseq_aligned = refseq[result.pattern_start:result.pattern_end]
-            seq_aligned = seq[result.text_start:result.text_end]
-#             cigars = result.cigartuples
-#             score = result.score
-#             cigars, score = adjust_align_score(cigars, score)
-            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
-            rev_scores_mat[i, j] = likelihood_per_read_per_allele
-
+        if a not in deresolute_alleles.keys():
+            refseq = (''.join(db[a].tolist())).replace('.', '')
+            ref = pywfa.WavefrontAligner(refseq)
+            for i, (seq, bq) in enumerate(zip(reads['sequence'], reads['base_quality'])):
+                result = ref(seq)
+                refseq_aligned = refseq[result.pattern_start:result.pattern_end]
+                seq_aligned = seq[result.text_start:result.text_end]
+    #             cigars = result.cigartuples
+    #             score = result.score
+    #             cigars, score = adjust_align_score(cigars, score)
+                likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
+                scores_mat[i, j] = likelihood_per_read_per_allele
+            for i, (seq, bq) in enumerate(zip(reads['rev_seq'], reads['rev_bq'])):
+                result = ref(seq)
+                refseq_aligned = refseq[result.pattern_start:result.pattern_end]
+                seq_aligned = seq[result.text_start:result.text_end]
+    #             cigars = result.cigartuples
+    #             score = result.score
+    #             cigars, score = adjust_align_score(cigars, score)
+                likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
+                rev_scores_mat[i, j] = likelihood_per_read_per_allele
+    for j, a in enumerate(db.columns):
+        if a in deresolute_alleles.keys():
+            scores_mat[:, j] = scores_mat[:, deresolute_alleles[a]]
+            rev_scores_mat[:, j] = rev_scores_mat[:, deresolute_alleles[a]]
     reads = reads.drop(columns = ['rev_seq', 'rev_bq'])
     scores_mat = np.maximum(scores_mat, rev_scores_mat)
     likelihood_mat = np.exp(scores_mat/temperature)/np.sum(np.exp(scores_mat/temperature), axis = 1, keepdims = True)
