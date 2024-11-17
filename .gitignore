@@ -1,3 +1,4 @@
+**/*.npy
 *tar.gz
 test-data/
 test-results/

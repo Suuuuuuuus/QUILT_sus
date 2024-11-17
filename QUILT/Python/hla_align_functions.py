@@ -77,7 +77,7 @@ def get_hla_reads(gene, bam, reads_apart_max = 1000):
         reads['pos'] = reads['pos'].astype(int)
         reads['pos_alt'] = reads['pos_alt'].astype(int)
         valid_contigs = contigs.split(' ') + ['chr6', '=']
-        
+
         mode = reads['sequence'].str.len().mode().values[0]
 
         reads = reads[
@@ -91,8 +91,8 @@ def get_hla_reads(gene, bam, reads_apart_max = 1000):
         id_counts = reads['ID'].value_counts()
         valid_ids_ary = id_counts[id_counts == 2].index.tolist()
         reads = reads[reads['ID'].isin(valid_ids_ary)].sort_values(by = 'ID').reset_index(drop = True)
-        return reads 
-    
+        return reads
+
 def per_allele(j, a, db, reads, q = None):
     refseq = (''.join(db[a].tolist())).replace('.', '')
     ref = pywfa.WavefrontAligner(refseq)
@@ -110,14 +110,14 @@ def per_allele(j, a, db, reads, q = None):
         seq_aligned = seq[result.text_start:result.text_end]
         likelihood_per_read_per_allele2 = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
         scores_mat_ary2.append(likelihood_per_read_per_allele2)
-    
+
     res = [j, np.array(scores_mat_ary1), np.array(scores_mat_ary2)]
     if q is None:
         return res
     else:
         q.put(res)
-    
-def multi_calculate_loglikelihood_per_allele(reads, db, temperature=1):
+
+def multi_calculate_loglikelihood_per_allele(reads, db, ncores = 1):
     reads['rev_seq'] = reads['sequence'].apply(reverse_complement)
     reads['rev_bq'] = reads['base_quality'].apply(lambda bq: bq[::-1])
 
@@ -125,39 +125,28 @@ def multi_calculate_loglikelihood_per_allele(reads, db, temperature=1):
     rev_scores_mat = np.zeros((reads.shape[0], db.shape[1]))
 
     deresolute_alleles = deresolute_db_alleles(db)
-    
-    manager = multiprocessing.Manager()
-    q = manager.Queue()
-    processes = []
-    
-    for j, a in enumerate(db.columns):
-        if a not in deresolute_alleles.keys():
-            tmp = multiprocessing.Process(target=per_allele,
-                                            args=(j, a, db, reads, q))
-            tmp.start()
-            processes.append(tmp)
 
-    for process in processes:
-        process.join()
-    res_lst = []
-    while not q.empty():
-        res_lst.append(q.get())
-    else:
-        for res in res_lst:
-            j = res[0]
-            scores_mat[:, j] = res[1]
-            rev_scores_mat[:, j] = res[2]
+    with multiprocessing.Pool(processes=ncores) as pool:
+        results = pool.starmap(
+            per_allele,
+            [(j, a, db, reads) for j, a in enumerate(db.columns) if a not in deresolute_alleles.keys()]
+        )
+
+    for res in filter(None, results):
+        j, scores, rev_scores = res
+        scores_mat[:, j] = scores
+        rev_scores_mat[:, j] = rev_scores
 
     for j, a in enumerate(db.columns):
         if a in deresolute_alleles.keys():
             scores_mat[:, j] = scores_mat[:, deresolute_alleles[a]]
             rev_scores_mat[:, j] = rev_scores_mat[:, deresolute_alleles[a]]
-            
+
     reads = reads.drop(columns = ['rev_seq', 'rev_bq'])
     scores_mat = np.maximum(scores_mat, rev_scores_mat)
-    likelihood_mat = np.exp(scores_mat/temperature)/np.sum(np.exp(scores_mat/temperature), axis = 1, keepdims = True)
+    likelihood_mat = np.exp(scores_mat)/np.sum(np.exp(scores_mat), axis = 1, keepdims = True)
     loglikelihood_mat = np.log(likelihood_mat)
-    return loglikelihood_mat   
+    return loglikelihood_mat
 
 def process_db_genfile(gene, 
                             ipd_gen_file_dir, 
