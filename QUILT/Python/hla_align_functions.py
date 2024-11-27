@@ -117,6 +117,63 @@ def per_allele(j, a, db, reads, q = None):
     else:
         q.put(res)
 
+def per_group_alignment(g, a, db, reads):
+    refseq = (''.join(db[a].tolist())).replace('.', '')
+    ref = pywfa.WavefrontAligner(refseq)
+    pos_df = pd.DataFrame(columns = ['refstart', 'refend', 'readstart', 'readend'])
+    for seq in reads['sequence']:
+        result = ref(seq)
+        pos_df.loc[len(pos_df)] = [result.pattern_start, result.pattern_end, result.text_start, result.text_end]
+        
+    rev_pos_df = pd.DataFrame(columns = ['refstart', 'refend', 'readstart', 'readend'])
+    for seq in reads['rev_seq']:
+        result = ref(seq)
+        rev_pos_df.loc[len(rev_pos_df)] = [result.pattern_start, result.pattern_end, result.text_start, result.text_end]
+    return [g, pos_df, rev_pos_df]        
+
+def multi_calculate_loglikelihood_msa(reads, db, ncores = 1):
+    reads['rev_seq'] = reads['sequence'].apply(reverse_complement)
+    reads['rev_bq'] = reads['base_quality'].apply(lambda bq: bq[::-1])
+
+    scores_mat = np.zeros((reads.shape[0], db.shape[1]))
+    rev_scores_mat = np.zeros((reads.shape[0], db.shape[1]))
+    
+    best_alleles = find_best_allele_per_clade(db)
+    plus_positions = {}
+    minus_positions = {}
+    
+    with multiprocessing.Pool(processes=ncores) as pool:
+        results = pool.starmap(
+            per_group_alignment,
+            [(g, a, db, reads) for g, a in best_alleles.items()]
+        )
+    
+    for res in results:
+        g, pos_df, rev_pos_df = res
+        plus_positions[g] = pos_df
+        minus_positions[g] = rev_pos_df
+    
+    for j, a in enumerate(db.columns):
+        group = a.split(':')[0]
+        refseq = (''.join(db[a].tolist())).replace('.', '')
+        for i, (seq, bq) in enumerate(zip(reads['sequence'], reads['base_quality'])):
+            refstart, refend, readstart, readend = plus_positions[group].loc[i,:]
+            refseq_aligned = refseq[refstart:refend]
+            seq_aligned = seq[readstart:readend]
+            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
+            scores_mat[i, j] = likelihood_per_read_per_allele
+        for i, (seq, bq) in enumerate(zip(reads['rev_seq'], reads['rev_bq'])):
+            refstart, refend, readstart, readend = minus_positions[group].loc[i,:]
+            refseq_aligned = refseq[refstart:refend]
+            seq_aligned = seq[readstart:readend]
+            likelihood_per_read_per_allele = calculate_score_per_alignment(seq_aligned, refseq_aligned, bq)
+            rev_scores_mat[i, j] = likelihood_per_read_per_allele
+    reads = reads.drop(columns = ['rev_seq', 'rev_bq'])
+    scores_mat = np.maximum(scores_mat, rev_scores_mat)
+    likelihood_mat = np.exp(scores_mat)/np.sum(np.exp(scores_mat), axis = 1, keepdims = True)
+    loglikelihood_mat = np.log(likelihood_mat)
+    return loglikelihood_mat 
+
 def multi_calculate_loglikelihood_per_allele(reads, db, ncores = 1):
     reads['rev_seq'] = reads['sequence'].apply(reverse_complement)
     reads['rev_bq'] = reads['base_quality'].apply(lambda bq: bq[::-1])
@@ -225,6 +282,22 @@ def reverse_complement(seq):
 
 def phred_to_scores(bq):
     return [ord(char) - 33 for char in bq]
+
+def find_best_allele_per_clade(db):
+    colnames = [col.split(':')[0] for col in db.columns]
+    res = {}
+    for i, c in enumerate(colnames):
+        if c in res.keys():
+            res[c].append(i)
+        else:
+            res[c] = [i]
+    result = {}
+
+    for group, indices in res.items():
+        sub_df = db.iloc[:, indices]
+        colref = sub_df.isin(['*']).sum().idxmin()
+        result[group] = colref
+    return result
 
 def deresolute_db_alleles(df, n_mismatch = 5):
     colnames = [col.split(':')[0] + ':' + col.split(':')[1] for col in df.columns]
@@ -340,8 +413,9 @@ def calculate_score_per_alignment(seq, refseq, bq, cg = -6, cm = 0, cx = -4, ce 
                 score += cg
             gap_ix = i+1
             score += ce
-        elif b2 == '*':
-            pass
+        elif (b2 == '*') or (b1 == 'N'):
+            p_match = 0.25
+            score += cm*p_match + cx*(1-p_match)
         elif b1 == b2:
             p_match = (1-10**(-0.1*q))
             score += cm*p_match + cx*(1-p_match)
