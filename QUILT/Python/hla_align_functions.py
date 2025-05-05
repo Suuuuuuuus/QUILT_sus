@@ -16,7 +16,8 @@ import pandas as pd
 import numpy as np
 import pywfa
 from IPython.display import display_html
-sys.path.append('/well/band/users/rbx225/software/lcwgsus/')
+home_dir = os.environ.get("home_dir")
+sys.path.append(f'{home_dir}software/lcwgsus/')
 import lcwgsus
 from lcwgsus.variables import *
 from collections import Counter
