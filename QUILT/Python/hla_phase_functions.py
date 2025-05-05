@@ -201,7 +201,7 @@ def read_vcf(start, end, phased_vcf, hlatypes, read_from_QUILT = False, subset_v
     
     command = "bcftools view -r chr6:" + str(int(start)) + "-" + str(int(end)) + " " + phased_vcf
     if read_from_QUILT:
-        command = command + " | bcftools filter -i 'INFO_SCORE > 0.5'"
+        command = command + " | bcftools filter -i 'INFO_SCORE > 0.9'"
     if subset_vcf_samples is not None:
         command = command + ' | bcftools view -s ' + subset_vcf_samples
 
@@ -221,8 +221,7 @@ def read_vcf(start, end, phased_vcf, hlatypes, read_from_QUILT = False, subset_v
             snp_haps[c] = snp_haps[c].str.split(':').str.get(0) 
     ## End of removal
 
-    retained_samples = snp_haps.columns.intersection(typed_samples).tolist()
-
+    retained_samples = sorted(snp_haps.columns.intersection(typed_samples).tolist())
     snp_haps = snp_haps.drop(columns = ['#CHROM', 'ID', 'QUAL', 'FILTER', 'INFO', 'FORMAT'])
     snp_haps = snp_haps[(snp_haps['REF'].str.len() == 1) & (snp_haps['ALT'].str.len() == 1)]
     # Test new
@@ -254,32 +253,6 @@ def phase_subtraction(array1, array2, indices):
         result[i] = tmp
     return result
 
-def plot_first_step_phase(return_dict):
-    oldphase1, oldphase2, phased1, phased2 = return_dict['initial_phase_res']
-    plt.scatter(oldphase1, oldphase2, c=1 + phased1.astype(int) + 2 * phased2.astype(int))
-    plt.title('Initial phasing')
-    plt.colorbar()
-    plt.xlim((-25, 200))
-    plt.ylim((-25, 200))
-    plt.show()
-    return None
-
-def plot_last_step_phase(return_dict):
-    oldphase1, oldphase2, phased1, phased2 = return_dict['initial_phase_res']
-    phase_df = return_dict['phase_df']
-    phased1 = phase_df['final_step_phase1'].values
-    phased2 = phase_df['final_step_phase2'].values
-    
-    plt.scatter(oldphase1, oldphase2, c=1 + phased1.astype(int) + 2 * phased2.astype(int))
-    indices = phase_df.index[phase_df['allele1'] == 'N/A']
-    plt.scatter(oldphase1[indices], oldphase2[indices], c = 'black', marker = 'x')
-    plt.title('Final phasing')
-    plt.colorbar()
-    plt.xlim((-25, 200))
-    plt.ylim((-25, 200))
-    plt.show()
-    return None
-
 def phase_hla_on_haplotypes(gene, 
                             ipd_gen_file_dir, 
                             hla_gene_information, 
@@ -289,16 +262,8 @@ def phase_hla_on_haplotypes(gene,
                             strict_snp_filter = True,
                             read_from_QUILT = False, 
                             subset_vcf_samples = None,
-                            sample_linker = None):
-    print('>>> Phasing commences')
-    print('>>> Parameters for this run:')
-    print('>>> - gene:', gene)
-    print('>>> - db directory:', ipd_gen_file_dir)
-    print('>>> - vcf file:', phased_vcf)
-    print('>>> - strict filtering on SNPs:', strict_snp_filter)
-    print('>>> - read from QUILT:', read_from_QUILT)
-    print('>>> - subset samples:', (subset_vcf_samples is not None))
-    
+                            sample_linker = None,
+                            impute = False):
     strand = hla_gene_information[hla_gene_information['Name'] == ('HLA-' + gene)]['Strand'].iloc[0]
     reference_allele = reference_allele_ary[np.char.find(reference_allele_ary, gene) != -1][0]
     nucleotides = ['A', 'T', 'C', 'G']
@@ -432,28 +397,28 @@ def phase_hla_on_haplotypes(gene,
     dbfull = dbfull.iloc[:, np.where(cond == True)[0]]
     dbfull.columns = range(dbfull.shape[1])
 
-    # Imputing database alleles
-    for i, a in enumerate(haps.columns):
-        haps_undetermined = haps[a] == -1
+    if impute:
+        # Imputing database alleles
+        for i, a in enumerate(haps.columns):
+            haps_undetermined = haps[a] == -1
 
-        allele_col = haps[~haps_undetermined][a]
-        subseted_db =  haps[~haps_undetermined] 
-        pairwise_distance = subseted_db.sub(subseted_db[a], axis=0)
-        counts = pairwise_distance.abs().sum().sort_values().iloc[1:]
-        closest_allele_idx = 0
-        substituted_nucleotides = np.array([np.nan]*np.sum(haps_undetermined))
-        substituted_indices = haps_undetermined[haps_undetermined == True].index
+            allele_col = haps[~haps_undetermined][a]
+            subseted_db =  haps[~haps_undetermined] 
+            pairwise_distance = subseted_db.sub(subseted_db[a], axis=0)
+            counts = pairwise_distance.abs().sum().sort_values().iloc[1:]
+            closest_allele_idx = 0
+            substituted_nucleotides = np.array([np.nan]*np.sum(haps_undetermined))
+            substituted_indices = haps_undetermined[haps_undetermined == True].index
 
-        while np.isnan(substituted_nucleotides).any() > 0:
-            closest_allele = counts.index[closest_allele_idx]
+            while np.isnan(substituted_nucleotides).any() > 0:
+                closest_allele = counts.index[closest_allele_idx]
 
-            target_haplotype = haps.loc[substituted_indices, closest_allele]
-            substitutable = target_haplotype[target_haplotype.values != -1]
-            substituted_nucleotides[np.where(np.in1d(substituted_indices, substitutable.index))[0]] = substitutable.values
-            closest_allele_idx += 1
+                target_haplotype = haps.loc[substituted_indices, closest_allele]
+                substitutable = target_haplotype[target_haplotype.values != -1]
+                substituted_nucleotides[np.where(np.in1d(substituted_indices, substitutable.index))[0]] = substitutable.values
+                closest_allele_idx += 1
 
-        haps.loc[substituted_indices, a] = substituted_nucleotides
-        # haps has dim n_variants * n_alleles
+            haps.loc[substituted_indices, a] = substituted_nucleotides
 
     prepared_vcf = vcf
     alleles = db.index
@@ -488,7 +453,7 @@ def phase_hla_on_haplotypes(gene,
         subset_vcf_samples, 
         sample_linker)
     
-    retained_samples = snp_haps.columns[4:].tolist()
+    retained_samples = sorted(snp_haps.columns[4:].tolist())
     hlatypes = hlatypes[hlatypes['Sample ID'].isin(retained_samples)].reset_index(drop = True)
     
     hrcfirstalleles = snp_haps[['snp', 'pos', 'ref', 'alt']]
@@ -603,6 +568,11 @@ def phase_hla_on_haplotypes(gene,
 
     predfirstalleles = get_pred_alleles(reftypes1)
     predsecondalleles = get_pred_alleles(reftypes2)
+    
+    vcfalleles1_ary = [hrcfirstalleles]
+    vcfalleles2_ary = [hrcsecondalleles]
+    truealleles1_ary = [predfirstalleles]
+    truealleles2_ary = [predsecondalleles]
 
     obsgen = hrcfirstalleles + hrcsecondalleles
     predgen = pd.DataFrame(predfirstalleles + predsecondalleles)
@@ -665,16 +635,18 @@ def phase_hla_on_haplotypes(gene,
     oldphase1 = phase1.copy()
     oldphase2 = phase2.copy()
     
+    phases_ary = [(phased1old, phased2old)]
+    phase1_res = (oldphase1, oldphase2, phased1, phased2)
+    
     return_dict = {
         'b38_start': full_start,
         'b38_end': full_end,
+        'gene' : gene,
         'hlatypes': hlatypes,
         'initial_phase_res': (oldphase1, oldphase2, phased1old, phased2old),
         'merged_snps': merged_snps,
-        'db_hap1': predfirstalleles,
-        'db_hap2': predsecondalleles,
-        'vcf_hap1': hrcfirstalleles,
-        'vcf_hap2': hrcsecondalleles
+        'reftypes1': reftypes1,
+        'reftypes2': reftypes2
     }
     
     phase_df = pd.DataFrame({'Sample': hlatypes['Sample ID'].values, 'first_step_phase1': phased1, 'first_step_phase2': phased2})
@@ -709,7 +681,12 @@ def phase_hla_on_haplotypes(gene,
                 predmatallele1[i, :] = predmat[np.where(nameset == reftypes1[i])[0][0], :]
             if reftypes2[i] in nameset: 
                 predmatallele2[i, :] = predmat[np.where(nameset == reftypes2[i])[0][0], :]
-
+                
+        vcfalleles1_ary.append(hrcfirstalleles)
+        vcfalleles2_ary.append(hrcsecondalleles)
+        truealleles1_ary.append(predmatallele1)
+        truealleles2_ary.append(predmatallele2)
+    
         dist11 = np.sum(np.abs(hrcfirstalleles - predmatallele1) > 0.9, axis=1)
         dist12 = np.sum(np.abs(hrcfirstalleles - predmatallele2) > 0.9, axis=1)
         dist21 = np.sum(np.abs(hrcsecondalleles - predmatallele1) > 0.9, axis=1)
@@ -739,6 +716,8 @@ def phase_hla_on_haplotypes(gene,
         update = ~phased1 & ~phased2
         phased1[update] = phased1b[update]
         phased2[update] = phased2b[update]
+        
+        phases_ary.append((phased1.copy(), phased2.copy()))
 
     phase_df['final_step_phase1'] = phased1
     phase_df['final_step_phase2'] = phased2
@@ -768,94 +747,133 @@ def phase_hla_on_haplotypes(gene,
         'type2': reftypes2[unphased_indices]
     })
     return_dict['unphased_df'] = unphased_df
+    
+    return_dict['vcfalleles1_ary'] = vcfalleles1_ary
+    return_dict['vcfalleles2_ary'] = vcfalleles2_ary
+    return_dict['truealleles1_ary'] = truealleles1_ary
+    return_dict['truealleles2_ary'] = truealleles2_ary
+    return_dict['phases_ary'] = phases_ary
     return return_dict
 
-def phase_trios(r, gene, hlatypes):
-    kid = r['Individual ID']
-    pat = r['Paternal ID']
-    mat = r['Maternal ID']
-    
-    lst_kid = hlatypes[hlatypes['Sample ID'] == kid][['HLA-' + gene + ' 1', 'HLA-' + gene + ' 2']].values[0]
-    set_kid = set(lst_kid)
-    
-    pattypes = hlatypes[hlatypes['Sample ID'] == pat][['HLA-' + gene + ' 1', 'HLA-' + gene + ' 2']].values
-    if len(pattypes) != 0:
-        lst_pat = pattypes[0]
-        set_pat = set(lst_pat)
-    else:
-        set_pat = {None}
-        pattypes = None
-    mattypes = hlatypes[hlatypes['Sample ID'] == mat][['HLA-' + gene + ' 1', 'HLA-' + gene + ' 2']].values
-    if len(mattypes) != 0:
-        lst_mat = mattypes[0]
-        set_mat = set(lst_mat)
-    else:
-        set_mat = {None}
-        mattypes = None
-    
-    if np.nan in set_kid:
-        if len(set_kid) == 1:
-            undetermined_trios.append(kid)
-        elif len(set_kid) == 2:
-            set_kid.discard(np.nan)
-            kidtype = list(set_kid)[0]
-            if np.nan not in (set_pat.union(set_mat)):
-                if (kidtype in set_pat) and (kidtype not in set_mat):
-                    r['allele1'] = kidtype
-                elif (kidtype in set_mat) and (kidtype not in set_pat):
-                    r['allele2'] = kidtype
-                else:
-                    pass
-            else:
-                if (np.nan not in set_mat) and (kidtype not in set_mat):
-                    r['allele1'] = kidtype
-                elif (np.nan not in set_pat) and (kidtype not in set_pat):
-                    r['allele2'] = kidtype
-                else:
-                    undetermined_trios.append(kid)
-    else:
-        if len(set_kid) == 1:
-            r['allele1'] = lst_kid[0]
-            r['allele2'] = lst_kid[0]
+def phase_subtraction_allele(array1, array2, indices):
+    array1 = array1.iloc[indices].values
+    array2 = array2[indices]
+    result = np.array([np.nan]*array1.size)
+    for i in range(array1.size):
+        if np.any(np.isnan(array1[i])) or np.any(np.isnan(array2[i])):
+            tmp = np.nan
         else:
-            if (lst_kid[0] in set_pat) and (lst_kid[0] not in set_mat):
-                if np.nan not in set_mat:
-                    r['allele1'] = lst_kid[0]
-                    r['allele2'] = lst_kid[1]
-                else:
-                    if lst_kid[1] not in set_pat:
-                        r['allele1'] = lst_kid[0]
-                        r['allele2'] = lst_kid[1]
-                    else:
-                        undetermined_trios.append(kid)
-            elif (lst_kid[1] in set_pat) and (lst_kid[1] not in set_mat):
-                if np.nan not in set_mat:
-                    r['allele1'] = lst_kid[1]
-                    r['allele2'] = lst_kid[0]
-                else:
-                    if lst_kid[0] not in set_pat:
-                        r['allele1'] = lst_kid[1]
-                        r['allele2'] = lst_kid[0]
-                    else:
-                        undetermined_trios.append(kid)  
-            elif (lst_kid[0] in set_mat) and (lst_kid[0] not in set_pat):
-                if np.nan not in set_pat:
-                    r['allele1'] = lst_kid[1]
-                    r['allele2'] = lst_kid[0]
-                else:
-                    if lst_kid[1] not in set_mat:
-                        r['allele1'] = lst_kid[1]
-                        r['allele2'] = lst_kid[0]
-                    else:
-                        undetermined_trios.append(kid)  
-            elif (lst_kid[1] in set_mat) and (lst_kid[1] not in set_pat):
-                if np.nan not in set_pat:
-                    r['allele1'] = lst_kid[0]
-                    r['allele2'] = lst_kid[1]
-                else:
-                    if lst_kid[0] not in set_mat:
-                        r['allele1'] = lst_kid[0]
-                        r['allele2'] = lst_kid[1]
-                    else:
-                        undetermined_trios.append(kid)  
-    return r
+            tmp = np.sum(np.abs(array1[i] - array2[i]))
+        result[i] = tmp
+    return result
+
+def plot_phase(return_dict, ix, title = '', colors = CATEGORY_CMAP_HEX, ax = None):
+    oldphase1, oldphase2, phased1, phased2 = return_dict['initial_phase_res']
+    phased1, phased2 = return_dict['phases_ary'][ix]
+    
+    np.random.seed(42)
+    jitter1 = np.random.normal(loc=0, scale=0.4, size=len(phased1))
+    jitter2 = np.random.normal(loc=0, scale=0.4, size=len(phased1))
+    oldphase1 = oldphase1 + jitter1
+    oldphase2 = oldphase2 + jitter2
+    
+    gene = return_dict['gene']
+    hlatypes = return_dict['hlatypes']
+    tmp = hlatypes[(hlatypes[f'HLA-{gene} 1'] != hlatypes[f'HLA-{gene} 2'])]
+
+    phase1_indices = np.intersect1d(np.where(phased1)[0], tmp.index)
+    phase2_indices = np.intersect1d(np.where(phased2)[0], tmp.index)
+    unphased_indices = np.intersect1d(np.where(~phased1 & ~phased2)[0], tmp.index)
+    
+    swap_mask = oldphase1 > oldphase2
+    oldphase1_swapped = np.where(swap_mask, oldphase2, oldphase1)
+    oldphase2_swapped = np.where(swap_mask, oldphase1, oldphase2)
+
+    if ax is None:
+        fig, ax = plt.subplots()
+    ax.scatter(oldphase1[phase1_indices], oldphase2[phase1_indices], alpha = 0.5, c=colors[0], ec = 'black', label = 'phased')
+    ax.scatter(oldphase2[phase2_indices], oldphase1[phase2_indices], alpha = 0.5, c=colors[0], ec = 'black')
+    ax.scatter(oldphase1_swapped[unphased_indices], oldphase2_swapped[unphased_indices], 
+            alpha=0.5, c=colors[2], ec='black', label='unphased')
+    
+    ymax = max(np.nan_to_num(oldphase1, nan=0).max(), np.nan_to_num(oldphase2, nan=0).max())
+    if ix == 0:
+        ax.plot([-1, 2], [1, 4], linestyle = '--', color = 'black')
+        ax.plot([2, 4], [4, 4], linestyle = '--', color = 'black')
+        ax.plot([4, 4], [4, ymax], linestyle = '--', color = 'black')
+    else:
+        xmax = ax.get_xlim()[1]
+        ax.plot([0, xmax], [0, xmax], linestyle = '--', color = 'black')
+    
+    N = len(tmp)
+    unphased_percentage = np.round((N-len(unphased_indices))*100/N, 1)
+
+    if title is not None:
+        ax.set_title(f'Step {ix}: {unphased_percentage}% of {N} samples are phased')
+    else:
+        ax.set_title(title)
+    ax.legend()
+    ax.set_xlabel('# Mismatch true phase')
+    ax.set_ylabel('# Mismatch wrong phase')
+    return None
+
+def plot_phasing_bar_graph(sample, ix, merged_snps, vcfallele1, vcfallele2, trueallele1, trueallele2, 
+                           type1, type2, start_pos, end_pos, show_x_label = True, figsize = (11, 6)):
+    h1 = vcfallele1.iloc[ix,:]
+    h2 = vcfallele2.iloc[ix,:]
+    p1 = trueallele1[ix,:]
+    p2 = trueallele2[ix,:]
+
+    x11 = phase_subtraction_allele(h1, p1, np.arange(vcfallele1.shape[1]))
+    x12 = phase_subtraction_allele(h1, p2, np.arange(vcfallele1.shape[1]))
+    x21 = phase_subtraction_allele(h2, p1, np.arange(vcfallele1.shape[1]))
+    x22 = phase_subtraction_allele(h2, p2, np.arange(vcfallele1.shape[1]))
+
+    bounds = [0, 0.5, 1]
+    norm = mcolors.BoundaryNorm(bounds, COLORBAR_CMAP.N)
+
+    array11 = x11[start_pos:end_pos]
+    array12 = x12[start_pos:end_pos]
+    array21 = x21[start_pos:end_pos]
+    array22 = x22[start_pos:end_pos]
+    
+    idxs = merged_snps.index.to_numpy()[start_pos:end_pos]
+    tmp = merged_snps.loc[idxs,:]
+    xlabels = (tmp['pos'].astype(str) + ':' + tmp['ref'] + ':' + tmp['alt']).values
+    fig, ax = plt.subplots(figsize=figsize)
+    im = ax.imshow([array11, array22], cmap=COLORBAR_CMAP, norm=norm)
+    ax.axhline(0.5, color = 'black')
+
+    if show_x_label:
+        ax.set_xticks(np.arange(len(array11)) - 0.5)
+        ax.set_xticklabels(xlabels, rotation=45, fontsize = 6)
+        ax.set_yticks([0, 1])
+        ax.set_yticklabels([f'hap1 = {type1}', f'hap2 = {type2}'])
+        plt.colorbar(im,
+                        boundaries=bounds,
+                        fraction=0.02, pad=0.07, aspect = 6).set_ticklabels(['M', '', 'X'])
+    else:
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    plt.title('Phase 1')
+    plt.show()
+
+
+    fig, ax = plt.subplots(figsize=figsize)
+    im = ax.imshow([array12, array21], cmap=COLORBAR_CMAP, norm=norm)
+    ax.axhline(0.5, color = 'black')
+    if show_x_label:
+        ax.set_xticks(np.arange(len(array21)) - 0.5)
+        ax.set_xticklabels(xlabels, rotation=45, fontsize = 6)
+        ax.set_yticks([0, 1])
+        ax.set_yticklabels([f'hap1 = {type2}', f'hap2 = {type1}'])
+        plt.colorbar(im,
+                        boundaries=bounds,
+                        fraction=0.02, pad=0.07, aspect = 6).set_ticklabels(['M', '', 'X'])
+    else:
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    plt.title('Phase 2')
+    plt.show()
