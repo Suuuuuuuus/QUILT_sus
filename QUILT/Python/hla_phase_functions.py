@@ -28,7 +28,7 @@ import random
 import itertools
 import collections
 import pyreadr
-import psa
+# import psa
 import pywfa
 from IPython.display import display_html
 # import patchworklib as pw
