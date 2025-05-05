@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 import pywfa
 from IPython.display import display_html
-home_dir = os.environ.get("home_dir")
+home_dir = os.environ.get("HOME_DIR")
 sys.path.append(f'{home_dir}software/lcwgsus/')
 import lcwgsus
 from lcwgsus.variables import *

@@ -15,7 +15,7 @@ import resource
 import pandas as pd
 import numpy as np
 import pywfa
-home_dir = os.environ.get("home_dir")
+home_dir = os.environ.get("HOME_DIR")
 sys.path.append(f'{home_dir}software/lcwgsus/')
 sys.path.append(f'{home_dir}software/QUILT_sus/QUILT/Python/')
 import lcwgsus
