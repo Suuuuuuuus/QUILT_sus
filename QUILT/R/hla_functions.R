@@ -18,7 +18,8 @@ quilt_hla_one_sample <- function(
     quilt_bqFilter,
     nGibbsSamples,
     hlahaptypes,
-    summary_best_alleles_threshold
+    summary_best_alleles_threshold,
+    outputdir
 ) {
 
     n <- length(bamfiles)
@@ -27,14 +28,14 @@ quilt_hla_one_sample <- function(
     }
     
     bamfile <- bamfiles[iSample]
-    # id <- sub("\\.bam$", "", basename(bamfile))
     python_output_dir <- tempdir()
-
-    # python_output_dir = paste0("/well/band/users/rbx225/GAMCC/results/hla/imputation/ref_panel/QUILT_prepared_reference_method/alignment_likelihoods/", id, "-", region)
     dir.create(python_output_dir, showWarnings = FALSE)
 
-    script <- "../software/QUILT_sus/QUILT/Python/hla_align.py" # Modify this later to be relative path
-    system(paste("python", script, region, bamfile, python_output_dir))
+    parts <- unlist(strsplit(outputdir, "/"))
+    basedir <- paste(parts[1:(length(parts) - 2)], collapse = "/")
+
+    script <- "../software/QUILT_test/QUILT/Python/hla_align.py" # Modify this later to be relative path
+    system(paste("python", script, region, bamfile, python_output_dir, basedir))
 
     readset1 <- read.csv(file.path(python_output_dir, "/reads1.csv"), header = FALSE)
     readset2 <- read.csv(file.path(python_output_dir, "/reads2.csv"), header = FALSE)
@@ -138,20 +139,50 @@ quilt_hla_one_sample <- function(
             ##intersection of this with quilt four digit inferences, summing the intersection, above (should sum to 1)
             ## 
             intersectfourdigitreadscaledlikelihoodmat=fourdigitreadscaledlikelihoodmat[names(vv2),names(vv2)]
+
+            ## Sus
+            intersectfourdigitreadscaledlikelihoodmat[lower.tri(intersectfourdigitreadscaledlikelihoodmat, diag = F)] <- 0
+            ## Sus
+
             intersectfourdigitreadscaledlikelihoodmat=intersectfourdigitreadscaledlikelihoodmat/sum(intersectfourdigitreadscaledlikelihoodmat)
+            
             ##
             ##intersection of quilt matrix with four digit inferences (rescaled to sum to one, ordered to match above)
             ## 
             intersectquiltscaledlikelihoodmat=quiltscaledlikelihoodmat[rownames(intersectfourdigitreadscaledlikelihoodmat),colnames(intersectfourdigitreadscaledlikelihoodmat)]
+
+            ## Sus
+            intersectquiltscaledlikelihoodmat[lower.tri(intersectquiltscaledlikelihoodmat, diag = F)] <- 0
+            ## Sus
+
             intersectquiltscaledlikelihoodmat=intersectquiltscaledlikelihoodmat/sum(intersectquiltscaledlikelihoodmat)
             ##product of intersection matrices gives overall likelihood, rescaled to sum to one
             combinedscaledlikelihoodmat=intersectfourdigitreadscaledlikelihoodmat*intersectquiltscaledlikelihoodmat
+
+            # ## Sus
+            # w1 <- max(intersectfourdigitreadscaledlikelihoodmat)
+            # w2 <- max(intersectquiltscaledlikelihoodmat)
+            # w1 <- w1 / (w1 + w2)
+            # w2 <- 1 - w1
+
+            # combinedscaledlikelihoodmat <- (intersectfourdigitreadscaledlikelihoodmat**w1)*(intersectquiltscaledlikelihoodmat**w2)
+            # ## Sus
+
             combinedscaledlikelihoodmat=combinedscaledlikelihoodmat/sum(combinedscaledlikelihoodmat)
-            combinedresults <- getbestalleles(combinedscaledlikelihoodmat, summary_best_alleles_threshold)
+
+            combinedresults <- get_best_alleles(combinedscaledlikelihoodmat, summary_best_alleles_threshold)
             ##for a matrix, make a little function to output allele pair probabilities, the answer
         }
 
-        quiltresults <- getbestalleles(quiltscaledlikelihoodmat, summary_best_alleles_threshold)
+        ## Sus
+        newnames = sort(colnames(quiltscaledlikelihoodmat))
+        tmp=quiltscaledlikelihoodmat[newnames,newnames]
+        tmp[lower.tri(tmp, diag = F)] <- 0
+        tmp = tmp/sum(tmp)
+        quiltresults <- get_best_alleles(tmp, summary_best_alleles_threshold)
+        ## Sus
+        
+        # quiltresults <- get_best_alleles(quiltscaledlikelihoodmat, summary_best_alleles_threshold)
         processed_output <- list(
             newquiltprobs = newquiltprobs,
             newphasedquiltprobs = newphasedquiltprobs,
@@ -187,14 +218,36 @@ quilt_hla_one_sample <- function(
     ##
     ## normalize joint version
     ##
+    
     joint_quiltscaledlikelihoodmat <- joint_quiltscaledlikelihoodmat / nGibbsSamples
-    joint_quiltresults <- getbestalleles(joint_quiltscaledlikelihoodmat, summary_best_alleles_threshold)
+
+    ## Sus
+    newnames = sort(colnames(joint_quiltscaledlikelihoodmat))
+    joint_quiltscaledlikelihoodmat=joint_quiltscaledlikelihoodmat[newnames,newnames]
+    joint_quiltscaledlikelihoodmat[lower.tri(joint_quiltscaledlikelihoodmat, diag = F)] <- 0
+    joint_quiltscaledlikelihoodmat = joint_quiltscaledlikelihoodmat/sum(joint_quiltscaledlikelihoodmat)
+    joint_quiltresults <- get_best_alleles(joint_quiltscaledlikelihoodmat, summary_best_alleles_threshold)
+    ## Sus
+
     if(length(that) | length(that2)){
-        joint_combinedscaledlikelihoodmat <- joint_combinedscaledlikelihoodmat / nGibbsSamples
-        joint_combinedresults <- getbestalleles(joint_combinedscaledlikelihoodmat, summary_best_alleles_threshold)
+        # joint_combinedscaledlikelihoodmat <- joint_combinedscaledlikelihoodmat / nGibbsSamples
+
+        cols = colnames(intersectfourdigitreadscaledlikelihoodmat)
+        joint_quiltscaledlikelihoodmat = joint_quiltscaledlikelihoodmat[cols,cols]
+        joint_quiltscaledlikelihoodmat[lower.tri(joint_quiltscaledlikelihoodmat, diag = F)] <- 0
+        joint_quiltscaledlikelihoodmat = joint_quiltscaledlikelihoodmat/sum(joint_quiltscaledlikelihoodmat)
+
+        # w1 <- max(intersectfourdigitreadscaledlikelihoodmat)
+        # w2 <- max(joint_quiltscaledlikelihoodmat)
+        # w1 <- w1 / (w1 + w2)
+        # w2 <- 1 - w1
+        # joint_combinedscaledlikelihoodmat <- (intersectfourdigitreadscaledlikelihoodmat**w1)*(tmp**w2)
+
+        joint_combinedscaledlikelihoodmat <- intersectfourdigitreadscaledlikelihoodmat*joint_quiltscaledlikelihoodmat
+        joint_combinedscaledlikelihoodmat = joint_combinedscaledlikelihoodmat/sum(joint_combinedscaledlikelihoodmat)
+
+        joint_combinedresults <- get_best_alleles(joint_combinedscaledlikelihoodmat, summary_best_alleles_threshold)
     } else {
-        ##joint_combinedresults <- NULL
-        ## change this, so if no reads, this just gives top QUILT results
         joint_combinedresults <- joint_quiltresults
     }
 
@@ -251,7 +304,10 @@ quilt_hla_one_sample <- function(
         unphased_summary_quilt_only = unphased_summary_quilt_only,
         unphased_summary_both = unphased_summary_both,
         joint_quiltresults = joint_quiltresults,
-        joint_combinedresults = joint_combinedresults
+        joint_combinedresults = joint_combinedresults,
+        quiltmat = joint_quiltscaledlikelihoodmat,
+        readmat = intersectfourdigitreadscaledlikelihoodmat,
+        combinedmat = joint_combinedscaledlikelihoodmat
     )
 
     return(hla_results)
@@ -427,6 +483,27 @@ get_fourdigitreadscaledlikelihoodmat <- function(overall, newphasedquiltprobs) {
 #######from below, is calling pipeline functions and then code, for the read-based calling of HLA type using only reads within each gene
 
 ##for a given region, now we have to read in the data
+
+get_best_alleles <- function(df, thresh = 0.99) {
+    # Expect df to be an upper triangular matrix
+    df = df/sum(df)
+    alleles <- rownames(df)
+    upper_indices <- which(upper.tri(df, diag = TRUE), arr.ind = TRUE)
+    
+    lhoods <- df[upper_indices]
+    result <- data.frame(
+        bestallele1 = alleles[upper_indices[, 1]],
+        bestallele2 = alleles[upper_indices[, 2]],
+        lhoods = lhoods
+    )
+    result <- result[order(-result$lhoods), ]
+    row.names(result) <- NULL
+    result$sums <- cumsum(result$lhoods)
+    row2 <- min(which(result$sums >= thresh))
+
+    return(as.matrix(result[1:row2, , drop = FALSE]))
+}
+
 getbestalleles <- function(matrix,thresh=0.99){
     ##make diagonal
     for(i in 2:nrow(matrix)) {

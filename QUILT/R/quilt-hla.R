@@ -162,16 +162,6 @@ QUILT_HLA <- function(
         stop(paste0("Cannot find prepared HLA haplotype reference file, expecting:", quilt_hla_haplotype_panelfile))
     }
 
-
-
-
-
-
-    ##
-    ##
-    ##
-    ## regs <- c("A","B","C","DMA" , "DMB" , "DOA"  ,"DOB",  "DPA1", "DPA2", "DPB1" ,"DPB2" ,"DQA1" ,"DQA2" ,"DQB1" ,"DRA",  "DRB1", "DRB5", "E", "F" ,   "G",    "H", "J" ,   "K",    "L",   "MICA", "MICB", "P", "S",    "T" ,   "TAP1" ,"TAP2", "U",    "V",    "W")
-
     ##
     ## do the normal QUILT part first. don't need to save this per-se
     ##
@@ -203,7 +193,7 @@ QUILT_HLA <- function(
         hla_run = TRUE,
         verbose = FALSE,
         downsampleToCov = downsampleToCov
-    ) # What is this doing? QUILT should be a class rather than a function, right?
+    )
     load(outfile1)
     unlink(outfile1)
     ## will return final_set_of_results
@@ -236,7 +226,8 @@ QUILT_HLA <- function(
         quilt_bqFilter = quilt_bqFilter,
         nGibbsSamples = nGibbsSamples,
         hlahaptypes = hlahaptypes,
-        summary_best_alleles_threshold = summary_best_alleles_threshold
+        summary_best_alleles_threshold = summary_best_alleles_threshold,
+        outputdir = outputdir
     )
 
     check_mclapply_OK(all_results)

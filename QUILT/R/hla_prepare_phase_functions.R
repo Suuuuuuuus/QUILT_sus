@@ -352,6 +352,9 @@ hla_perform_step_1_phasing <- function(
         }
 
         newlocs=locs-start+1
+        if (newlocs[1] == 0) {
+            newlocs <- newlocs + 1
+        }
         hrchapstomatch=temp2[,newlocs]
         hrcfirstalleles=hrchapstomatch[seq(1,nrow(hrchapstomatch),2),]
         hrcsecondalleles=hrchapstomatch[seq(2,nrow(hrchapstomatch),2),]
