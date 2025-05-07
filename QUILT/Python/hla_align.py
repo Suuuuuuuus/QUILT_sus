@@ -58,6 +58,11 @@ if __name__ == "__main__":
         version = '3390'
     
     hla_gene_information = pd.read_csv(HLA_GENE_INFORMATION_FILE, sep = ' ')
-    db_dir = f'/well/band/users/rbx225/recyclable_files/hla_reference_files/v{version}_merged_only/'
-    as_dir = f'/well/band/users/rbx225/GAMCC/results/hla/imputation/WFA_alignments/v{version}/'
+
+    if 'gjx698' in home_dir:
+        db_dir = f'{home_dir}recyclable_files/hla_reference_files/v3570_oneKG_only/'
+        as_dir = f'{home_dir}hcv/results/hla/imputation/WFA_alignments/v3570/'
+    else:
+        db_dir = f'{home_dir}recyclable_files/hla_reference_files/v{version}_merged_only/'
+        as_dir = f'{home_dir}GAMCC/results/hla/imputation/WFA_alignments/v{version}/'
     main(gene, bam, db_dir, as_dir, hla_gene_information, outdir, reads_df_outdir)
