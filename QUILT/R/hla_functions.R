@@ -34,7 +34,7 @@ quilt_hla_one_sample <- function(
     parts <- unlist(strsplit(outputdir, "/"))
     basedir <- paste(parts[1:(length(parts) - 2)], collapse = "/")
 
-    script <- "../software/QUILT_test/QUILT/Python/hla_align.py" # Modify this later to be relative path
+    script <- "../software/QUILT_sus/QUILT/Python/hla_align.py" # Modify this later to be relative path
     system(paste("python", script, region, bamfile, python_output_dir, basedir))
 
     readset1 <- read.csv(file.path(python_output_dir, "/reads1.csv"), header = FALSE)
