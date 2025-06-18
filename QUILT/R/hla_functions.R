@@ -37,16 +37,26 @@ quilt_hla_one_sample <- function(
     script <- "../software/QUILT_sus/QUILT/Python/hla_align.py" # Modify this later to be relative path
     system(paste("python", script, region, bamfile, python_output_dir, basedir))
 
-    readset1 <- read.csv(file.path(python_output_dir, "/reads1.csv"), header = FALSE)
-    readset2 <- read.csv(file.path(python_output_dir, "/reads2.csv"), header = FALSE)
-    readlikelihoodmat <- read.table(file.path(python_output_dir, "/pair_likelihood_matrix.ssv"), header = TRUE, row.names = 1, sep = " ", check.names = FALSE)
-    pairedscores <- read.table(file.path(python_output_dir, "/mate_likelihood_matrix.ssv"), header = TRUE, row.names = 1, sep = " ", check.names = FALSE)
-    readlikelihoodmat <- as.matrix(readlikelihoodmat)
-    pairedscores <- as.matrix(pairedscores)
-    overall <- readlikelihoodmat
+    if (file.size(file.path(python_output_dir, "/reads1.csv")) == 0){
+        readlikelihoodmat <- NULL
+        readset1 <- NULL
+        readset2 <- NULL
+        pairedscores <- NULL
+        overall <- NULL
+        that <- NULL
+        that2 <- NULL  
+    } else {
+        readset1 <- read.csv(file.path(python_output_dir, "/reads1.csv"), header = FALSE)
+        readset2 <- read.csv(file.path(python_output_dir, "/reads2.csv"), header = FALSE)
+        readlikelihoodmat <- read.table(file.path(python_output_dir, "/pair_likelihood_matrix.ssv"), header = TRUE, row.names = 1, sep = " ", check.names = FALSE)
+        pairedscores <- read.table(file.path(python_output_dir, "/mate_likelihood_matrix.ssv"), header = TRUE, row.names = 1, sep = " ", check.names = FALSE)
+        readlikelihoodmat <- as.matrix(readlikelihoodmat)
+        pairedscores <- as.matrix(pairedscores)
+        overall <- readlikelihoodmat
 
-    that <- readset1
-    that2 <- readset2
+        that <- readset1
+        that2 <- readset2
+    }
 
     readscaledlikelihoodmat <- NULL
     fourdigitreadscaledlikelihoodmat <- NULL

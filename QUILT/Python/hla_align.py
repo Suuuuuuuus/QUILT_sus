@@ -35,16 +35,21 @@ def main(gene, bam, db_dir, as_dir, hla_gene_information, outdir, reads_df_outdi
     mate.to_csv(outdir + '/mate_likelihood_matrix.ssv',  index=True, header=True, sep = ' ')
     pair.to_csv(outdir + '/pair_likelihood_matrix.ssv',  index=True, header=True, sep = ' ')
     
-    sample = bam.split('/')[-1].split('.')[0]
-
-    bestalleles = get_best_alleles(pair)
-    bestalleles.columns = ['bestallele1', 'bestallele2', 'post_prob', 'sums']
-    bestalleles['sample_number'] = 1
-    bestalleles['sample_name'] = sample
-    bestalleles = bestalleles[['sample_number', 'sample_name', 'bestallele1', 'bestallele2', 'post_prob', 'sums']]
-
-    bestalleles.to_csv(f'{reads_df_outdir}/{sample}/{gene}/quilt.hla.output.onlyreads.all.txt', index = False, header = True, sep = '\t')
-    bestalleles.iloc[[0], :].to_csv(f'{reads_df_outdir}/{sample}/{gene}/quilt.hla.output.onlyreads.topresult.txt', index = False, header = True, sep = '\t')
+    if len(r1) != 0:
+        sample = bam.split('/')[-1].split('.')[0]
+    
+        bestalleles = get_best_alleles(pair)
+        bestalleles.columns = ['bestallele1', 'bestallele2', 'post_prob', 'sums']
+        bestalleles['sample_number'] = 1
+        bestalleles['sample_name'] = sample
+        bestalleles = bestalleles[['sample_number', 'sample_name', 'bestallele1', 'bestallele2', 'post_prob', 'sums']]
+    
+        bestalleles.to_csv(f'{reads_df_outdir}/{sample}/{gene}/quilt.hla.output.onlyreads.all.txt', index = False, header = True, sep = '\t')
+        bestalleles.iloc[[0], :].to_csv(f'{reads_df_outdir}/{sample}/{gene}/quilt.hla.output.onlyreads.topresult.txt', index = False, header = True, sep = '\t')
+    else:
+        tmp = pd.DataFrame(columns = ['sample_number', 'sample_name', 'bestallele1', 'bestallele2', 'post_prob', 'sums'])
+        tmp.to_csv(f'{reads_df_outdir}/{sample}/{gene}/quilt.hla.output.onlyreads.all.txt', index = False, header = True, sep = '\t')
+        tmp.to_csv(f'{reads_df_outdir}/{sample}/{gene}/quilt.hla.output.onlyreads.topresult.txt', index = False, header = True, sep = '\t')
 
 if __name__ == "__main__":
     gene = sys.argv[1]
