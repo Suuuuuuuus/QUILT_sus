@@ -37,13 +37,21 @@ def hla_aligner(gene, bam, db_dir, as_dir, hla_gene_information,
                 score_diff_in_alignment_genes = 8,
                 n_unique_onefield = None,
                 phase = False):
+    sample = bam.split('/')[-1].split('.')[0]
+    likemat = pd.read_csv(f"{as_dir}{sample}/{gene}/AS_matrix.ssv", sep = ' ', index_col = 0)
+    if len(likemat) == 0:
+        columns = likemat.columns
+        reads1 = pd.DataFrame(columns = columns)
+        reads2 = reads1.copy()
+        likemat_mate_df = pd.DataFrame(0, index=columns, columns=columns)
+        likemat_paired_df = pd.DataFrame(0, index=columns, columns=columns)                       
+        return reads1, reads2, likemat_mate_df, likemat_paired_df
+    
     reads1 = get_chr6_reads(gene, bam, hla_gene_information, strict = True,
                             reads_apart_max = reads_apart_max, 
                             reads_extend_max = reads_extend_max)
     
     rl = reads1['sequence'].str.len().mode().values[0]
-    sample = bam.split('/')[-1].split('.')[0]
-
     reads2 = get_hla_reads(gene, bam, reads_extend_max = reads_extend_max)
 
     if reads1.empty:
@@ -53,7 +61,6 @@ def hla_aligner(gene, bam, db_dir, as_dir, hla_gene_information,
     else:
         pass
 
-    likemat = pd.read_csv(f"{as_dir}{sample}/{gene}/AS_matrix.ssv", sep = ' ', index_col = 0)
     likemat1 = likemat.values
     aligned_genes = likemat.columns.str.split('*').str.get(0).unique().tolist()
     
@@ -66,7 +73,6 @@ def hla_aligner(gene, bam, db_dir, as_dir, hla_gene_information,
     target_alleles = columns[columns_to_keep]
     
     min_valid_prob = n_mismatches*np.log(assumed_bq) + (rl - n_mismatches)*np.log(1 - assumed_bq)
-#     min_valid_prob = -20
     valid_indices1 = np.any(likemat1 >= min_valid_prob, axis=1)
     likemat1, reads1 = likemat1[valid_indices1], reads1[valid_indices1]
     likemat_all = likemat1
@@ -296,14 +302,6 @@ def get_hla_reads(gene, bam, strict = True, reads_extend_max = 1000):
 def get_alignment_scores(hla_gene_information_file, gene, bam, db_dir, ofile, strict = True,
                          reads_apart_max = 1000, reads_extend_max = 1000):
     hla_gene_information = pd.read_csv(hla_gene_information_file, sep = ' ')
-    
-    reads1 = get_chr6_reads(gene, bam, hla_gene_information, 
-                    strict = strict,
-                    reads_apart_max = reads_apart_max, 
-                    reads_extend_max = reads_extend_max)
-
-    rl = reads1['sequence'].str.len().mode().values[0]
-    ncores = max(2*(len(os.sched_getaffinity(0))) - 1, 1)
 
     db_dict = {}
     for g in HLA_GENES_ALL_EXPANDED:
@@ -311,12 +309,23 @@ def get_alignment_scores(hla_gene_information_file, gene, bam, db_dir, ofile, st
         for c in db.columns:
             refseq = ''.join(db[c].tolist()).replace('.', '').lstrip('*').rstrip('*')
             db_dict[c] = refseq
-
     columns = np.array(list(db_dict.keys()))
-    likemat1 = multi_calculate_loglikelihood_per_allele(reads1, db_dict, ncores)
-
-    alignment_scores_raw = pd.DataFrame(likemat1, index=reads1['ID'].tolist(), columns=columns)
-    alignment_scores_raw.to_csv(ofile, float_format='%.6f', sep = ' ', header = True, index = True)
+    
+    reads1 = get_chr6_reads(gene, bam, hla_gene_information, 
+                    strict = strict,
+                    reads_apart_max = reads_apart_max, 
+                    reads_extend_max = reads_extend_max)
+    if len(reads1) == 0:
+        tmp = pd.DataFrame(columns = columns)
+        tmp.to_csv(ofile, sep = ' ', header = True, index = True)
+    else:
+        rl = reads1['sequence'].str.len().mode().values[0]
+        ncores = max(2*(len(os.sched_getaffinity(0))) - 1, 1)
+    
+        likemat1 = multi_calculate_loglikelihood_per_allele(reads1, db_dict, ncores)
+    
+        alignment_scores_raw = pd.DataFrame(likemat1, index=reads1['ID'].tolist(), columns=columns)
+        alignment_scores_raw.to_csv(ofile, float_format='%.6f', sep = ' ', header = True, index = True)
     return None
     
 def multi_calculate_loglikelihood_per_allele(reads, db, ncores = 1):

@@ -66,6 +66,9 @@ quilt_hla_one_sample <- function(
     combinedscaledlikelihoodmat <- NULL
     combinedresults <- NULL
     mappingonlyresults <- NULL
+    joint_quiltscaledlikelihoodmat <- NULL
+    intersectfourdigitreadscaledlikelihoodmat <- NULL
+    joint_combinedscaledlikelihoodmat <- NULL
     
     unlink(python_output_dir)
     
